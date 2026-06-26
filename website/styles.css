@@ -188,33 +188,36 @@ body { font-family: var(--font); color: var(--s900); background: var(--white); o
   66% { transform: translate(-20px,30px) scale(.95) }
 }
 
-/* Two-column hero: copy left, phone mockup right */
+/* Hero: desktop = text+actions left (grouped), phone right; mobile = text → phone → actions */
 .hero-center {
   padding: 80px 0 48px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 56px;
-  position: relative;
-  z-index: 1;
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "text phone" "actions phone";
+  column-gap: 56px;
+  align-content: center;
+  align-items: start;
 }
-.hero-copy {
-  flex: 1; min-width: 0; max-width: 580px;
-  display: flex; flex-direction: column; align-items: flex-start; text-align: left;
-}
-.hero-copy .hero-btns { justify-content: flex-start; }
-.hero-copy .hero-sub { margin-left: 0; margin-right: 0; }
+.hero-text    { grid-area: text;    max-width: 580px; text-align: left; }
+.hero-actions { grid-area: actions; max-width: 580px; }
+.hero-mockup  { grid-area: phone;   align-self: center; }
+.hero-btns { justify-content: flex-start; }
+.hero-text .hero-sub { margin-left: 0; margin-right: 0; }
+
 @media (max-width: 980px) {
   .hero { min-height: auto; justify-content: flex-start; }
-  .hero-center { flex-direction: column; text-align: center; gap: 40px; padding: 110px 0 64px; }
-  .hero-copy { align-items: center; text-align: center; max-width: 600px; }
-  .hero-copy .hero-btns { justify-content: center; }
-  .hero-copy .hero-sub { margin-left: auto; margin-right: auto; }
+  .hero-center { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 30px; padding: 110px 0 64px; }
+  .hero-text, .hero-actions { max-width: 600px; align-items: center; }
+  .hero-text .hero-sub { margin: 0 auto; }
+  .hero-actions { display: flex; flex-direction: column; align-items: center; }
+  .hero-btns { justify-content: center; }
   .phone { transform: none; animation: phoneFloatY 6s ease-in-out infinite; width: 224px; height: 456px; }
 }
 @keyframes phoneFloatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
 @media (max-width: 560px) { .phone { width: 210px; height: 428px; border-radius: 34px; } }
+/* Hide the nav "Get started" button on mobile */
+@media (max-width: 600px) { .nav-actions .btn-primary { display: none; } }
 .hero-pill { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--g500); background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25); border-radius: 100px; padding: 5px 14px; margin-bottom: 24px; }
 .pill-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--g500); animation: pdot 2s infinite; }
 @keyframes pdot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.5)} }
