@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { View, Text, TextInput, ScrollView, Pressable, FlatList, StyleSheet, Modal } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -53,6 +53,19 @@ export default function SearchScreen() {
   const [selectedPrices, setSelectedPrices] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [minRating, setMinRating] = useState(0)
+
+  // Re-apply the filter whenever a new category/query arrives from the Home tiles
+  // (the Search tab stays mounted, so tapping Events then Experiences must update here).
+  useEffect(() => {
+    if (route.params?.category) {
+      const c = route.params.category
+      setCat(c.charAt(0).toUpperCase() + c.slice(1))
+      setQuery(route.params.query ?? '')
+      setSelectedTags([])
+    } else if (route.params?.query !== undefined) {
+      setQuery(route.params.query)
+    }
+  }, [route.params?.category, route.params?.query])
 
   // Switching category clears category-specific tag selections (facets differ per category)
   const chooseCat = (c: string) => { setCat(c); setSelectedTags([]) }

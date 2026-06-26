@@ -89,11 +89,11 @@ function isLoggedIn() {
   return localStorage.getItem('spotly_auth') === '1'
 }
 
-/* ── Platforms ── */
+/* ── Platforms (each portal has its own demo login) ── */
 const PLATFORMS = {
-  customer: { badge: 'Customer portal', title: 'Welcome back.',   sub: 'Sign in to discover restaurants, events, and experiences around you.' },
-  business: { badge: 'Business portal', title: 'Partner sign in.', sub: 'Manage your listings, bookings, pricing and earnings on Spotly.' },
-  driver:   { badge: 'Driver portal',   title: 'Driver sign in.',  sub: 'Accept deliveries, navigate with GPS and track your payouts.' },
+  customer: { badge: 'Customer portal', title: 'Welcome back.',   sub: 'Sign in to discover restaurants, events, and experiences around you.', email: 'deonmatongo@spotly.app', password: '123456' },
+  business: { badge: 'Business portal', title: 'Partner sign in.', sub: 'Manage your listings, bookings, pricing and earnings on Spotly.',       email: 'amanzi@spotly.app',      password: 'business' },
+  driver:   { badge: 'Driver portal',   title: 'Driver sign in.',  sub: 'Accept deliveries, navigate with GPS and track your payouts.',         email: 'tendai@spotly.app',      password: 'driver' },
 }
 function getPlatform() { return localStorage.getItem('spotly_platform') || 'customer' }
 
@@ -101,11 +101,23 @@ function getPlatform() { return localStorage.getItem('spotly_platform') || 'cust
 document.addEventListener('DOMContentLoaded', () => {
   state.bookings = getBookings()
   state.cart = getCart()
-  if (isLoggedIn()) showApp()
+  if (isLoggedIn()) routeToDashboard()
   else showPlatform()
   setupPlatform()
   setupLogin()
 })
+
+/* Route a logged-in user to the right portal */
+function routeToDashboard() {
+  const p = getPlatform()
+  if (p === 'business') showBusiness()
+  else if (p === 'driver') showDriver()
+  else showApp()
+}
+function hideAuthViews() {
+  document.getElementById('view-platform').hidden = true
+  document.getElementById('view-login').hidden = true
+}
 
 /* ── Platform select ── */
 function showPlatform() {
@@ -127,13 +139,20 @@ function setupPlatform() {
 
 /* ── Login ── */
 function showLogin(platform) {
-  const meta = PLATFORMS[platform || getPlatform()] || PLATFORMS.customer
+  const p = platform || getPlatform()
+  const meta = PLATFORMS[p] || PLATFORMS.customer
   const badge = document.getElementById('loginBadge')
   const title = document.getElementById('loginTitle')
   const sub   = document.getElementById('loginSubtitle')
+  const hint  = document.getElementById('loginHint')
+  const emailInput = document.getElementById('loginEmail')
+  const pwdInput = document.getElementById('loginPwd')
   if (badge) badge.textContent = meta.badge
   if (title) title.textContent = meta.title
   if (sub)   sub.textContent   = meta.sub
+  if (hint)  hint.innerHTML = `Demo: <strong>${meta.email}</strong> / <strong>${meta.password}</strong>`
+  if (emailInput) emailInput.value = meta.email   // prefill for the demo
+  if (pwdInput) pwdInput.value = ''
   document.getElementById('view-platform').hidden = true
   document.getElementById('view-login').hidden = false
   document.getElementById('view-app').hidden = true
@@ -160,10 +179,12 @@ function setupLogin() {
     e.preventDefault()
     const email = document.getElementById('loginEmail').value.trim().toLowerCase()
     const pass  = pwd.value
-    if (email === CREDENTIALS.email && pass === CREDENTIALS.password) {
+    const p = getPlatform()
+    const acct = PLATFORMS[p] || PLATFORMS.customer
+    if (email === acct.email.toLowerCase() && pass === acct.password) {
       localStorage.setItem('spotly_auth', '1')
       err.hidden = true
-      showApp()
+      routeToDashboard()
     } else {
       err.hidden = false
       form.querySelectorAll('.input-wrap input').forEach(i => i.style.borderColor = '#EF4444')

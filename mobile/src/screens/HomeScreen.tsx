@@ -73,14 +73,13 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.safe}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-        {/* ── Green hero header ── */}
-        <LinearGradient
-          colors={['#166534', '#15803D', '#16A34A']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
+      {/* ── Green hero header (pinned — stays while content scrolls) ── */}
+      <LinearGradient
+        colors={['#166534', '#15803D', '#16A34A']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.hero}
+      >
           <SafeAreaView edges={['top']}>
             <View style={styles.heroTop}>
               <View style={{ flex: 1 }}>
@@ -108,8 +107,9 @@ export default function HomeScreen() {
               <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.85)" />
             </View>
           </SafeAreaView>
-        </LinearGradient>
+      </LinearGradient>
 
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         {/* ── Quick categories ── */}
         <View style={styles.catGrid}>
           {CATEGORIES.map(cat => (

@@ -106,7 +106,7 @@
           </button>
           <div class="login-hint">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-            Demo: <strong>deonmatongo@spotly.app</strong> / <strong>123456</strong>
+            <span id="loginHint">Demo: <strong>deonmatongo@spotly.app</strong> / <strong>123456</strong></span>
           </div>
         </form>
         <p class="signup-text">Don't have an account? <a href="#">Sign up — it's free</a></p>
@@ -260,10 +260,17 @@
   </main>
 </div>
 
+<!-- ═══════════ BUSINESS DASHBOARD ═══════════ -->
+<div id="view-business" class="view" hidden></div>
+
+<!-- ═══════════ DRIVER DASHBOARD ═══════════ -->
+<div id="view-driver" class="view" hidden></div>
+
 <!-- Mobile sidebar overlay -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <script src="data.js"></script>
+<script src="dashboards.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
