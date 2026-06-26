@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
 
@@ -68,14 +68,6 @@
 <!-- HERO -->
 <section class="hero">
 
-  <!-- Background slideshow -->
-  <div class="hero-slides">
-    <div class="slide slide-active" style="background-image:url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1920&h=1080&fit=crop')"></div>
-    <div class="slide" style="background-image:url('https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1920&h=1080&fit=crop')"></div>
-    <div class="slide" style="background-image:url('https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1920&h=1080&fit=crop')"></div>
-    <div class="slide-overlay"></div>
-  </div>
-
   <!-- Animated orbs -->
   <div class="hero-orbs">
     <div class="orb orb-1"></div>
@@ -84,13 +76,12 @@
   </div>
 
   <div class="container hero-center">
+   <div class="hero-copy">
     <div class="hero-pill anim-fade-up" style="--d:.05s">
       <span class="pill-dot"></span>
       Now available in Harare, Zimbabwe
     </div>
-    <h1 class="anim-fade-up" style="--d:.15s">
-      Everything you <span class="highlight">love</span>,<br />all in one spot.
-    </h1>
+    <h1 class="anim-fade-up hero-h1" style="--d:.15s"><span id="typed"></span><span class="type-cursor" aria-hidden="true"></span></h1>
     <p class="hero-sub anim-fade-up" style="--d:.25s">
       Food, groceries, events, and experiences — discover and book the best of what's happening around you.
     </p>
@@ -115,11 +106,16 @@
       <div class="hstat-div"></div>
       <div class="hstat"><strong>10K+</strong><span>Happy users</span></div>
     </div>
-    <div class="slide-dots anim-fade-up" style="--d:.55s">
-      <button class="sdot sdot-active" data-slide="0"></button>
-      <button class="sdot" data-slide="1"></button>
-      <button class="sdot" data-slide="2"></button>
-    </div>
+   </div><!-- /hero-copy -->
+
+   <!-- Phone mockup showing the real app -->
+   <div class="hero-mockup anim-fade-up" style="--d:.3s">
+     <div class="phone">
+       <div class="phone-screen">
+         <img class="phone-img" src="assets/app-home.png" alt="Spotly app home screen" />
+       </div>
+     </div>
+   </div>
   </div>
 
 </section>
@@ -478,28 +474,48 @@
   overlay.addEventListener('click', closeDrawer)
   drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', closeDrawer))
 
-  // Hero slideshow
-  const slides = document.querySelectorAll('.slide')
-  const dots   = document.querySelectorAll('.sdot')
-  let current  = 0
-
-  function goToSlide(n) {
-    slides[current].classList.remove('slide-active')
-    dots[current].classList.remove('sdot-active')
-    current = (n + slides.length) % slides.length
-    slides[current].classList.add('slide-active')
-    dots[current].classList.add('sdot-active')
-  }
-
-  let timer = setInterval(() => goToSlide(current + 1), 7000)
-
-  dots.forEach((dot, i) => {
-    dot.addEventListener('click', () => {
-      clearInterval(timer)
-      goToSlide(i)
-      timer = setInterval(() => goToSlide(current + 1), 7000)
+  // Hero headline typewriter — cycles through taglines
+  const typed = document.getElementById('typed')
+  if (typed) {
+    const LINES = [
+      [['Everything you ', 0], ['love', 1], [', all in one spot.', 0]],
+      [['Dining, events & ', 0], ['experiences', 1], [' — booked.', 0]],
+      [['Your whole city, ', 0], ['one tap', 1], [' away.', 0]],
+    ]
+    const seqs = LINES.map(segs => {
+      const cs = []; segs.forEach(([t, h]) => { for (const ch of t) cs.push([ch, h]) }); return cs
     })
-  })
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    function render(li, n) {
+      const cs = seqs[li].slice(0, n)
+      let html = '', buf = '', cur = -1
+      cs.forEach(([ch, h]) => {
+        if (h !== cur) { if (buf) html += cur ? '<span class="highlight">' + esc(buf) + '</span>' : esc(buf); buf = ''; cur = h }
+        buf += ch
+      })
+      if (buf) html += cur ? '<span class="highlight">' + esc(buf) + '</span>' : esc(buf)
+      typed.innerHTML = html
+    }
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) {
+      render(0, seqs[0].length)
+    } else {
+      let li = 0, ci = 0, del = false
+      function tick() {
+        const full = seqs[li].length
+        if (!del) {
+          ci++; render(li, ci)
+          if (ci >= full) { del = true; return setTimeout(tick, 2000) }
+          setTimeout(tick, 60)
+        } else {
+          ci--; render(li, ci)
+          if (ci <= 0) { del = false; li = (li + 1) % seqs.length; return setTimeout(tick, 400) }
+          setTimeout(tick, 30)
+        }
+      }
+      setTimeout(tick, 650)
+    }
+  }
 
   // Scroll reveal
   const revealObserver = new IntersectionObserver((entries) => {
