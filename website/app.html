@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spotly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+
+<!-- ═══════════ PLATFORM SELECT ═══════════ -->
+<div id="view-platform" class="view">
+  <div class="platform-page">
+    <div class="platform-inner">
+      <a href="index.html" class="logo-link platform-logo">
+        <div class="app-logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#fff"/></svg></div>
+        <span>spotly</span>
+      </a>
+      <h1 class="platform-title">How do you want to use Spotly?</h1>
+      <p class="platform-sub">Choose the platform you'd like to access. You can switch anytime.</p>
+
+      <div class="platform-cards">
+        <button class="platform-card" data-platform="customer">
+          <div class="pc-icon pc-icon-customer">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="pc-text">
+            <div class="pc-name">Customer</div>
+            <div class="pc-desc">Discover and book restaurants, events, groceries and experiences.</div>
+          </div>
+          <svg class="pc-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+
+        <button class="platform-card" data-platform="business">
+          <div class="pc-icon pc-icon-business">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M3 7v14M21 7v14M6 11h.01M6 15h.01M10 11h.01M10 15h.01M14 11h.01M14 15h.01M18 11h.01M18 15h.01M3 7l9-4 9 4"/></svg>
+          </div>
+          <div class="pc-text">
+            <div class="pc-name">Business</div>
+            <div class="pc-desc">List your venue, manage bookings, set pricing and track earnings.</div>
+          </div>
+          <svg class="pc-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+
+        <button class="platform-card" data-platform="driver">
+          <div class="pc-icon pc-icon-driver">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h1.5a1.5 1.5 0 0 0 1.5-1.5V11l-3-4h-4M3 16V6a1 1 0 0 1 1-1h10v11"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg>
+          </div>
+          <div class="pc-text">
+            <div class="pc-name">Driver</div>
+            <div class="pc-desc">Accept deliveries, navigate with GPS and track your payouts.</div>
+          </div>
+          <svg class="pc-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+
+      <p class="platform-foot">Spotly · Zimbabwe's lifestyle super-app</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<div id="view-login" class="view" hidden>
+  <div class="login-page">
+    <div class="login-left">
+      <div class="ll-inner">
+        <button type="button" class="login-back" id="loginBack">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Choose platform
+        </button>
+        <a href="index.html" class="logo-link">
+          <div class="app-logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#fff"/></svg></div>
+          <span>spotly</span>
+        </a>
+        <div class="login-badge" id="loginBadge">Customer portal</div>
+        <h1 id="loginTitle">Welcome back.</h1>
+        <p id="loginSubtitle">Sign in to discover restaurants, events, and experiences around you.</p>
+        <form id="loginForm" class="login-form" novalidate>
+          <div class="field">
+            <label>Email address</label>
+            <div class="input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <input type="email" id="loginEmail" placeholder="deonmatongo@spotly.app" autocomplete="email" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <div class="input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              <input type="password" id="loginPwd" placeholder="••••••" autocomplete="current-password" />
+              <button type="button" class="eye-btn" id="eyeBtn" tabindex="-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="loginError" class="login-error" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Invalid email or password. Try: deonmatongo@spotly.app / 123456
+          </div>
+          <button type="submit" class="btn-login" id="loginBtn">
+            <span class="btn-label">Sign in</span>
+            <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+          <div class="login-hint">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            Demo: <strong>deonmatongo@spotly.app</strong> / <strong>123456</strong>
+          </div>
+        </form>
+        <p class="signup-text">Don't have an account? <a href="#">Sign up — it's free</a></p>
+      </div>
+    </div>
+    <div class="login-right">
+      <div class="login-visual">
+        <div class="lv-card lv-card-1">
+          <div class="lvc-img" style="background:linear-gradient(135deg,#065f46,#16a34a)"></div>
+          <div class="lvc-body">
+            <div class="lvc-name">Amanzi Restaurant</div>
+            <div class="lvc-meta">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="#F59E0B"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
+              4.8 · Fine Dining · Harare
+            </div>
+          </div>
+        </div>
+        <div class="lv-card lv-card-2">
+          <div class="lvc-img" style="background:linear-gradient(135deg,#1e3a5f,#2563eb)"></div>
+          <div class="lvc-body">
+            <div class="lvc-name">Harare Jazz &amp; Soul Festival</div>
+            <div class="lvc-meta">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              8–10 Aug · From $35
+            </div>
+          </div>
+        </div>
+        <div class="lv-confirm">
+          <div class="lvc-check">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#15803D" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <div class="lvc-title">Booking confirmed!</div>
+            <div class="lvc-sub">Amanzi · Sat 7:30 PM · 4 guests</div>
+          </div>
+        </div>
+        <div class="lv-points">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#B45309"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
+          <div>
+            <div class="lvp-val">+150 pts earned</div>
+            <div class="lvp-sub">On your last booking</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ APP SHELL ═══════════ -->
+<div id="view-app" class="view" hidden>
+
+  <!-- Sidebar (desktop) -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+      <a href="#" class="sb-logo" data-nav="home">
+        <div class="app-logo-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#fff"/></svg></div>
+        <span>spotly</span>
+      </a>
+      <nav class="sb-nav">
+        <a class="sb-item sb-active" data-nav="home">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Home
+        </a>
+        <a class="sb-item" data-nav="search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Search
+        </a>
+        <a class="sb-item" data-nav="browse">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Browse
+        </a>
+        <a class="sb-item" data-nav="cart" style="position:relative">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.97-1.67L23 6H6"/></svg>
+          Cart
+          <span class="cart-badge" style="display:none">0</span>
+        </a>
+        <a class="sb-item" data-nav="bookings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Bookings
+        </a>
+        <a class="sb-item" data-nav="profile">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Profile
+        </a>
+      </nav>
+      <div class="sb-footer">
+        <div class="sb-user" id="sbUser">
+          <div class="sb-avatar">D</div>
+          <div class="sb-user-info">
+            <div class="sb-name">Deon Matongo</div>
+            <div class="sb-points">1,240 pts · Gold</div>
+          </div>
+        </div>
+        <button class="sb-logout" id="logoutBtn" title="Sign out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content area -->
+  <main class="main-area" id="mainArea">
+
+    <!-- Top bar (mobile) -->
+    <header class="topbar" id="topbar">
+      <button class="topbar-menu" id="sidebarToggle">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="topbar-logo" data-nav="home" style="cursor:pointer">
+        <div class="app-logo-icon app-logo-sm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#fff"/></svg></div>
+        <span>spotly</span>
+      </div>
+      <button class="topbar-cart" data-nav="cart" style="position:relative">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.97-1.67L23 6H6"/></svg>
+        <span class="cart-badge" style="display:none">0</span>
+      </button>
+      <button class="topbar-avatar" data-nav="profile">D</button>
+    </header>
+
+    <!-- Page content renders here -->
+    <div class="page-content" id="pageContent"></div>
+
+    <!-- Bottom nav (mobile) -->
+    <nav class="bottom-nav" id="bottomNav">
+      <a class="bn-item bn-active" data-nav="home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </a>
+      <a class="bn-item" data-nav="search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span>Search</span>
+      </a>
+      <a class="bn-item" data-nav="browse">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Browse</span>
+      </a>
+      <a class="bn-item" data-nav="cart" style="position:relative">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.97-1.67L23 6H6"/></svg>
+        <span>Cart</span>
+        <span class="cart-badge" style="display:none">0</span>
+      </a>
+      <a class="bn-item" data-nav="bookings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span>Bookings</span>
+      </a>
+      <a class="bn-item" data-nav="profile">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Profile</span>
+      </a>
+    </nav>
+  </main>
+</div>
+
+<!-- Mobile sidebar overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

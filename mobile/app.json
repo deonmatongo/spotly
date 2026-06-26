@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Spotly",
+    "slug": "spotly-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.spotly.mobile",
+      "infoPlist": {
+        "NSCalendarsUsageDescription": "Spotly saves your event tickets to your calendar so you never miss a show.",
+        "NSCalendarsFullAccessUsageDescription": "Spotly saves your event tickets to your calendar so you never miss a show."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#16A34A"
+      },
+      "package": "app.spotly.mobile"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0D1B2A"
+        }
+      ],
+      "expo-font",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Spotly saves your event tickets to your calendar."
+        }
+      ]
+    ]
+  }
+}
