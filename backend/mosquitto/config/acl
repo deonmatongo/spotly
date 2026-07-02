@@ -1,0 +1,18 @@
+# Topic ACLs.
+#
+# Drivers authenticate with their driverId as the MQTT username, so the
+# %u pattern locks each driver to their own publish topic — a compromised
+# client can't publish as another driver or snoop the fleet.
+
+# The bridge service fans locations out and needs full access.
+user bridge
+topic readwrite #
+
+# Each driver may only publish their own location.
+pattern write drivers/%u/location
+
+# Rider apps share a read-only account scoped to trip channels. They never
+# see raw drivers/# topics — the bridge re-publishes per-trip, so a rider
+# only learns the position of the driver assigned to *their* trip.
+user rider
+topic read trips/#

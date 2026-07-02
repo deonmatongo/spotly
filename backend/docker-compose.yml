@@ -1,0 +1,43 @@
+version: '3.8'
+
+# Spotly live-tracking backend: Mosquitto broker + Node bridge.
+#
+# First run — create broker credentials (the passwd file is gitignored):
+#   docker compose run --rm mosquitto sh -c \
+#     "mosquitto_passwd -c -b /mosquitto/config/passwd bridge  $BRIDGE_PASS && \
+#      mosquitto_passwd    -b /mosquitto/config/passwd rider   $RIDER_PASS  && \
+#      mosquitto_passwd    -b /mosquitto/config/passwd tatenda-moyo $DRIVER_PASS"
+#
+# Then: docker compose up -d
+#
+# Local development without Docker: `cd bridge && npm run dev`
+# (starts an embedded Aedes broker on the same ports + the bridge in one process)
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - '1883:1883'   # MQTT/TCP (bridge, native clients)
+      - '9001:9001'   # MQTT over WebSocket (React Native / browser clients)
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - mosquitto-data:/mosquitto/data
+
+  bridge:
+    build: ./bridge
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    ports:
+      - '4000:4000'
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      MQTT_USER: bridge
+      MQTT_PASS: ${BRIDGE_PASS:-change-me}
+      PORT: '4000'
+      # Mirrors every driver fix onto trips/demo/location — dev/demo only.
+      DEV_MIRROR: '0'
+
+volumes:
+  mosquitto-data:
