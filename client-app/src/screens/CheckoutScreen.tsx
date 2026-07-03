@@ -20,6 +20,10 @@ import { useCart } from '../context/CartContext'
 import { useTickets } from '../context/TicketsContext'
 import { useNotifications } from '../context/NotificationsContext'
 import { currentUser, offers, Offer } from '../data/mock'
+import { orderBus } from '../services/orderBus'
+import {
+  Order, DEMO_MERCHANT_ID, DEMO_MERCHANT_NAME, MERCHANT_COORD, FALLBACK_DROPOFF,
+} from '@spotly/shared'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'Checkout'>
@@ -129,6 +133,29 @@ export default function CheckoutScreen() {
         venue: ticketItems[0]?.eventMeta?.venue ?? '',
       })
     } else {
+      // Publish the order onto the bus so the merchant app receives it live and
+      // (once ready) a driver can be dispatched. All demo orders route to the
+      // single merchant (Amanzi), which is also the tracking pickup point.
+      const order: Order = {
+        ref: orderNum,
+        merchantId: DEMO_MERCHANT_ID,
+        merchantName: foodItems[0]?.from ?? DEMO_MERCHANT_NAME,
+        customerName: currentUser.name,
+        customerPhone: (currentUser as any).phone ?? '+263 77 000 0000',
+        items: foodItems.map(i => ({ id: i.id, name: i.name, qty: i.qty, unitPrice: i.price })),
+        subtotal,
+        deliveryFee,
+        total: finalTotal,
+        status: 'placed',
+        placedAt: Date.now(),
+        address: mode === 'delivery' ? address : 'Collection at store',
+        addressNote: mode === 'delivery' ? addressNote : undefined,
+        pickupCoord: MERCHANT_COORD,
+        dropoffCoord: FALLBACK_DROPOFF,
+        prepMinutes: 20,
+      }
+      orderBus.placeOrder(order)
+
       addNotification({
         type: 'order',
         title: 'Order placed 🛵',

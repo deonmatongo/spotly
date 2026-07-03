@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Spotly Merchant",
+    "slug": "spotly-merchant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.spotly.merchant"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D1B2A"
+      },
+      "package": "app.spotly.merchant"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0D1B2A"
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}

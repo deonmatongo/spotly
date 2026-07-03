@@ -104,6 +104,15 @@ export const listings: Listing[] = [
     pointsEarned: 150,
     eta: '12 min',
     popular: true,
+    // Menu mirrors the Amanzi merchant app so an order placed here lands
+    // coherently in that merchant's live inbox.
+    menu: [
+      { id: 'm1', name: 'Grilled Tilapia', desc: 'Whole tilapia, chimichurri, served with sadza', price: 12.50, image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=200&h=200&fit=crop' },
+      { id: 'm2', name: 'Nyama Choma Platter', desc: 'Mixed BBQ meats, peri-peri sauce, roast veg', price: 16.90, image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop' },
+      { id: 'm7', name: 'Dovi Peanut Butter Stew', desc: 'Chicken in peanut butter sauce, cabbage, sadza', price: 10.50, image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=200&h=200&fit=crop' },
+      { id: 'm11', name: 'Chips (Fries)', desc: 'Crispy house-cut chips, seasoned salt', price: 2.50, image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=200&h=200&fit=crop' },
+      { id: 'm12', name: 'Chocolate Lava Cake', desc: 'Warm chocolate fondant, vanilla ice cream', price: 5.50, image: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=200&h=200&fit=crop' },
+    ],
   },
   {
     id: 2,

@@ -13,6 +13,8 @@ import TrackingMap from '../components/TrackingMap'
 import { DriverFix } from '../hooks/useDriverLocation'
 import { getEtaMinutes } from '../services/eta'
 import { DEST_COORD } from '../config/tracking'
+import { orderBus } from '../services/orderBus'
+import { OrderStatus } from '@spotly/shared'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'OrderTracking'>
@@ -24,6 +26,21 @@ const STAGES = [
   { id: 3, icon: 'home-outline' as const, label: 'Delivered', desc: 'Your order has arrived. Enjoy!', time: '' },
 ]
 
+// Map the canonical order status (published by the merchant + driver apps) onto
+// this screen's 4-stage timeline.
+function statusToStage(s: OrderStatus): number {
+  switch (s) {
+    case 'placed':
+    case 'accepted': return 0
+    case 'preparing':
+    case 'ready': return 1
+    case 'picked_up':
+    case 'en_route': return 2
+    case 'delivered': return 3
+    default: return 0
+  }
+}
+
 export default function OrderTrackingScreen() {
   const { colors } = useTheme()
   const styles = makeStyles(colors)
@@ -32,6 +49,10 @@ export default function OrderTrackingScreen() {
   const [stage, setStage] = useState(0)
   const progressAnim = useRef(new Animated.Value(0)).current
   const pulseAnim = useRef(new Animated.Value(1)).current
+  // Once the merchant/driver publish real progress, the bus drives the timeline
+  // and the canned timers below stand down. If no backend is running, the timers
+  // still animate a self-contained demo.
+  const hasLiveRef = useRef(false)
 
   useEffect(() => {
     Animated.loop(
@@ -42,21 +63,44 @@ export default function OrderTrackingScreen() {
     ).start()
   }, [])
 
+  const animateTo = useCallback((next: number) => {
+    Animated.timing(progressAnim, {
+      toValue: next / (STAGES.length - 1),
+      duration: 600,
+      useNativeDriver: false,
+    }).start()
+  }, [])
+
+  // Live status from the order bus (merchant accepts/prepares/readies, driver
+  // picks up / delivers). Any progress beyond "placed" hands the timeline over
+  // to real events.
   useEffect(() => {
+    const off = orderBus.trackOrder(orderNumber, evt => {
+      const st = statusToStage(evt.status)
+      if (st > 0) hasLiveRef.current = true
+      if (!hasLiveRef.current) return
+      setStage(prev => {
+        if (st === prev) return prev
+        animateTo(st)
+        return st
+      })
+    })
+    return off
+  }, [orderNumber, animateTo])
+
+  useEffect(() => {
+    if (hasLiveRef.current) return
     if (stage >= STAGES.length - 1) return
     const t = setTimeout(() => {
+      if (hasLiveRef.current) return
       setStage(s => {
         const next = s + 1
-        Animated.timing(progressAnim, {
-          toValue: next / (STAGES.length - 1),
-          duration: 600,
-          useNativeDriver: false,
-        }).start()
+        animateTo(next)
         return next
       })
     }, stage === 0 ? 4000 : stage === 1 ? 7000 : 12000)
     return () => clearTimeout(t)
-  }, [stage])
+  }, [stage, animateTo])
 
   // Live ETA from the driver's latest fix — recomputed at most every 20s
   // (the OSRM demo server is rate-limited). Stage-based estimate is the
