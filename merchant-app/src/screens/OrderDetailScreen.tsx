@@ -10,6 +10,8 @@ import { useOrders } from '../context/OrdersContext'
 import { RootStackParamList } from '../navigation'
 import AppText from '../components/AppText'
 import Tappable from '../components/Tappable'
+import OrderTimer from '../components/OrderTimer'
+import RiderApproachMap from '../components/RiderApproachMap'
 
 type Route = RouteProp<RootStackParamList, 'OrderDetail'>
 
@@ -52,7 +54,12 @@ export default function OrderDetailScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <AppText variant="h2" style={{ color: colors.textPrimary }}>{order.ref}</AppText>
-          <AppText variant="caption" style={{ color: colors.textMuted, marginTop: 2 }}>Placed {order.placedAt}</AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <AppText variant="caption" style={{ color: colors.textMuted }}>Placed {order.placedAt}</AppText>
+            {order.placedTs && order.status !== 'done' && order.status !== 'declined' && (
+              <OrderTimer placedTs={order.placedTs} colors={colors} />
+            )}
+          </View>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusColor + '22' }]}>
           <AppText variant="label" style={{ fontSize: 10, color: statusColor, letterSpacing: 0.6 }}>{order.status.toUpperCase()}</AppText>
@@ -88,6 +95,17 @@ export default function OrderDetailScreen() {
             </View>
           )}
         </Animated.View>
+
+        {/* Live: rider approaching the store to collect */}
+        {order.driverName && (order.status === 'ready' || order.status === 'done') && (
+          <Animated.View entering={FadeInDown.delay(40).springify().damping(16)} style={{ marginBottom: spacing.md }}>
+            <View style={styles.trackHead}>
+              <View style={[styles.sectionBar, { backgroundColor: colors.primary }]} />
+              <AppText variant="h3" style={{ color: colors.textPrimary, flex: 1 }}>{order.driverName} is collecting</AppText>
+            </View>
+            <RiderApproachMap tripRef={order.ref} colors={colors} />
+          </Animated.View>
+        )}
 
         {/* Items */}
         <Animated.View entering={FadeInDown.delay(60).springify().damping(16)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -155,6 +173,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
 
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   infoIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  trackHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  sectionBar: { width: 4, height: 16, borderRadius: 2 },
 
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   qtyBadge: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },

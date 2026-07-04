@@ -7,6 +7,7 @@ import { Palette } from '../context/ThemeContext'
 import { cut, spacing } from '../theme'
 import AppText from './AppText'
 import Tappable from './Tappable'
+import OrderTimer from './OrderTimer'
 
 const STATUS_META: Record<OrderStatus, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   new: { label: 'New', icon: 'flash', color: '#F97316' },
@@ -36,7 +37,9 @@ export default function OrderCard({ order, index, colors, onPress }: Props) {
             <Ionicons name={meta.icon} size={12} color={meta.color} />
             <AppText variant="label" style={{ fontSize: 9.5, color: meta.color, letterSpacing: 0.8 }}>{meta.label}</AppText>
           </View>
-          <AppText variant="label" style={{ fontSize: 9.5, color: colors.textLight }}>{order.placedAt}</AppText>
+          {order.placedTs && order.status !== 'done' && order.status !== 'declined'
+            ? <OrderTimer placedTs={order.placedTs} colors={colors} />
+            : <AppText variant="label" style={{ fontSize: 9.5, color: colors.textLight }}>{order.placedAt}</AppText>}
         </View>
 
         <View style={styles.body}>

@@ -23,6 +23,7 @@ export interface MerchantOrder {
   total: number
   status: OrderStatus
   placedAt: string
+  placedTs?: number   // epoch ms — drives the live "elapsed since placed" timer
   prepMinutes: number
   driverName?: string
   address: string

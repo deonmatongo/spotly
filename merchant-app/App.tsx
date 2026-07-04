@@ -18,6 +18,7 @@ import { StoreProvider } from './src/context/StoreContext'
 import { OrdersProvider } from './src/context/OrdersContext'
 import { colors } from './src/theme'
 import AppText from './src/components/AppText'
+import NewOrderAlert from './src/components/NewOrderAlert'
 
 function ThemedNavRoot() {
   const { colors, isDark } = useTheme()
@@ -36,6 +37,7 @@ function ThemedNavRoot() {
     <NavigationContainer theme={navTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <RootNavigator />
+      <NewOrderAlert />
     </NavigationContainer>
   )
 }

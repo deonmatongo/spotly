@@ -19,10 +19,20 @@ function sharedOrderToMerchant(o: Order): MerchantOrder {
     total: o.total,
     status: canonicalToMerchant(o.status),
     placedAt: 'Just now',
+    placedTs: o.placedAt || Date.now(),
     prepMinutes: o.prepMinutes ?? 20,
     driverName: o.driverName,
     address: o.address,
   }
+}
+
+// Turn a seed order's "N min ago" / "N hr M min ago" label into an epoch so the
+// live timer works for the demo orders too.
+function agoToTs(label: string): number {
+  const hr = /(\d+)\s*hr/.exec(label)
+  const min = /(\d+)\s*min/.exec(label)
+  const mins = (hr ? parseInt(hr[1], 10) * 60 : 0) + (min ? parseInt(min[1], 10) : 0)
+  return Date.now() - mins * 60000
 }
 
 function buildJob(order: MerchantOrder): DeliveryJob {
@@ -54,6 +64,8 @@ interface OrdersContextType {
   readyOrders: MerchantOrder[]
   doneOrders: MerchantOrder[]
   connection: MqttStatus
+  incomingOrder: MerchantOrder | null
+  dismissIncoming: () => void
   acceptOrder: (id: string) => void
   markPreparing: (id: string) => void
   markReady: (id: string) => void
@@ -65,21 +77,35 @@ interface OrdersContextType {
 const OrdersContext = createContext<OrdersContextType | null>(null)
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
-  const [orders, setOrders] = useState<MerchantOrder[]>(seedOrders)
+  const [orders, setOrders] = useState<MerchantOrder[]>(
+    () => seedOrders.map(o => ({ ...o, placedTs: o.placedTs ?? agoToTs(o.placedAt) }))
+  )
   const [connection, setConnection] = useState<MqttStatus>('offline')
+  const [incomingOrder, setIncomingOrder] = useState<MerchantOrder | null>(null)
   const clientRef = useRef<SpotlyClient | null>(null)
+  // Retained orders arrive in a burst on connect; only ring for orders that
+  // land after this window so we don't alert for the whole backlog.
+  const alertsReady = useRef(false)
+  const seenRefs = useRef<Set<string>>(new Set(seedOrders.map(o => o.ref)))
 
   useEffect(() => {
     const spotly = new SpotlyClient('merchant')
     clientRef.current = spotly
     const offStatus = spotly.onStatus(setConnection)
+    const readyTimer = setTimeout(() => { alertsReady.current = true }, 1800)
 
     // Live inbox: new customer orders arrive here (and retained ones on connect).
     const offInbox = spotly.watchInbox(
       DEMO_MERCHANT_ID,
       (order) => {
+        const incoming = sharedOrderToMerchant(order)
+        const isBrandNew = !seenRefs.current.has(incoming.ref)
+        seenRefs.current.add(incoming.ref)
+        // Ring the alert only for genuinely-new orders that arrive live.
+        if (isBrandNew && alertsReady.current && incoming.status === 'new') {
+          setIncomingOrder(incoming)
+        }
         setOrders(prev => {
-          const incoming = sharedOrderToMerchant(order)
           const existing = prev.find(o => o.ref === incoming.ref)
           if (existing) {
             // Merge status/driver updates without clobbering local edits.
@@ -94,8 +120,10 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     )
 
     spotly.connect()
-    return () => { offStatus(); offInbox(); spotly.disconnect() }
+    return () => { clearTimeout(readyTimer); offStatus(); offInbox(); spotly.disconnect() }
   }, [])
+
+  const dismissIncoming = () => setIncomingOrder(null)
 
   const transition = (id: string, next: OrderStatus) => {
     const order = orders.find(o => o.id === id)
@@ -130,6 +158,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       readyOrders,
       doneOrders,
       connection,
+      incomingOrder,
+      dismissIncoming,
       acceptOrder: (id) => transition(id, 'preparing'),
       markPreparing: (id) => transition(id, 'preparing'),
       markReady: (id) => transition(id, 'ready'),
