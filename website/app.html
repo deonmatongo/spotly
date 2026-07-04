@@ -6,7 +6,9 @@
   <title>Spotly</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <!-- Two-voice type system, same as the mobile apps: Space Grotesk for
+       headlines & numbers, Manrope for body copy. -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="app.css" />
 </head>
 <body>
@@ -269,6 +271,9 @@
 <!-- Mobile sidebar overlay -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
+<!-- Spotly order bus: same MQTT event bus as the mobile apps -->
+<script src="vendor/paho-mqtt-min.js"></script>
+<script src="spotly-bus.js"></script>
 <script src="data.js"></script>
 <script src="dashboards.js"></script>
 <script src="app.js"></script>

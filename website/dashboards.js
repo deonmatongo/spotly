@@ -12,6 +12,8 @@ const BIZ = {
   rating: 4.8,
   reviewCount: 642,
   section: 'overview',
+  orders: [],            // live delivery orders from the customer app (via the bus)
+  connection: 'offline', // bus connection status
   bookings: [
     { id: 'b1', customer: 'Farai Ncube',     party: 4, date: 'Today',      time: '7:30 PM', note: 'Window seat if possible', status: 'pending',   source: 'Mobile app' },
     { id: 'b2', customer: 'Chiedza Mhuri',    party: 2, date: 'Today',      time: '8:00 PM', note: 'Anniversary',            status: 'pending',   source: 'Mobile app' },
@@ -50,6 +52,7 @@ const BIZ = {
 
 const BIZ_NAV = [
   { id: 'overview',   label: 'Overview',    icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
+  { id: 'orders',     label: 'Orders',      icon: 'M6 2l1.5 3h9L18 2M3 6h18l-1.5 12a2 2 0 01-2 2H6.5a2 2 0 01-2-2z' },
   { id: 'bookings',   label: 'Bookings',    icon: 'M3 4h18v18H3zM16 2v4M8 2v4M3 10h18' },
   { id: 'services',   label: 'Services',    icon: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z' },
   { id: 'calendar',   label: 'Availability',icon: 'M3 4h18v18H3zM16 2v4M8 2v4M3 10h18' },
@@ -65,9 +68,89 @@ function showBusiness() {
   document.getElementById('view-app').hidden = true
   document.getElementById('view-driver').hidden = true
   document.getElementById('view-business').hidden = false
+  bizConnectBus()
   renderBiz()
 }
 function bizGo(section) { BIZ.section = section; renderBiz() }
+
+/* ── Live order bus (mirrors merchant-app OrdersContext) ── */
+var bizBus = null
+function bizVisible() { return !document.getElementById('view-business').hidden }
+
+function bizConnectBus() {
+  if (bizBus || !window.SpotlyBus) return
+  var S = window.SpotlyBus
+  bizBus = new S.Bus('merchant')
+  bizBus.onStatus(function (s) { BIZ.connection = s; if (bizVisible()) renderBiz() })
+  bizBus.watchInbox(S.config.DEMO_MERCHANT_ID,
+    function (order) { bizUpsertOrder(order); if (bizVisible()) renderBiz() },
+    function (ref) { BIZ.orders = BIZ.orders.filter(function (o) { return o.ref !== ref }); if (bizVisible()) renderBiz() }
+  )
+  bizBus.connect()
+}
+
+// canonical order status -> merchant vocabulary (matches shared/adapters.ts)
+function canonicalToMerchant(s) {
+  switch (s) {
+    case 'placed': return 'new'
+    case 'accepted': case 'preparing': return 'preparing'
+    case 'ready': return 'ready'
+    case 'picked_up': case 'en_route': case 'delivered': return 'done'
+    case 'declined': case 'cancelled': return 'declined'
+    default: return 'new'
+  }
+}
+function merchantToCanonical(s) {
+  switch (s) {
+    case 'new': return 'placed'
+    case 'preparing': return 'preparing'
+    case 'ready': return 'ready'
+    case 'done': return 'delivered'
+    case 'declined': return 'declined'
+    default: return 'placed'
+  }
+}
+
+function bizUpsertOrder(order) {
+  var mStatus = canonicalToMerchant(order.status)
+  var existing = BIZ.orders.find(function (o) { return o.ref === order.ref })
+  if (existing) {
+    existing.status = mStatus
+    if (order.driverName) existing.driverName = order.driverName
+  } else {
+    BIZ.orders.unshift({
+      ref: order.ref, customer: order.customerName, phone: order.customerPhone,
+      items: order.items || [], total: order.total, subtotal: order.subtotal,
+      deliveryFee: order.deliveryFee, address: order.address,
+      prepMinutes: order.prepMinutes || 20, status: mStatus, driverName: order.driverName || '',
+      fresh: true,
+    })
+  }
+}
+
+function bizOrderAction(ref, next) {
+  var o = BIZ.orders.find(function (x) { return x.ref === ref }); if (!o) return
+  o.status = next; o.fresh = false
+  if (bizBus) {
+    bizBus.setOrderStatus({ ref: ref, status: merchantToCanonical(next), ts: Date.now() })
+    if (next === 'declined' || next === 'done') bizBus.clearInboxOrder(window.SpotlyBus.config.DEMO_MERCHANT_ID, ref)
+    if (next === 'ready') bizBus.dispatchJob(bizBuildJob(o))
+  }
+  renderBiz()
+}
+
+function bizBuildJob(o) {
+  var S = window.SpotlyBus.config
+  return {
+    ref: o.ref, merchantId: S.DEMO_MERCHANT_ID, vendorName: BIZ.name,
+    pickup: '225 Enterprise Road, Highlands, Harare', pickupCoord: S.MERCHANT_COORD,
+    dropoff: o.address, dropoffCoord: S.FALLBACK_DROPOFF,
+    customerName: o.customer, customerPhone: o.phone,
+    itemsSummary: (o.items || []).map(function (i) { return i.qty + '× ' + i.name }).join(', '),
+    distance: '5.0 km', estMinutes: o.prepMinutes || 18,
+    payout: Number((3.5 + (o.deliveryFee || 2.9)).toFixed(2)), tip: 0, dispatchedAt: Date.now(),
+  }
+}
 
 function renderBiz() {
   const el = document.getElementById('view-business')
@@ -81,6 +164,7 @@ function renderBiz() {
             <div class="dash-sub">${BIZ.name}${BIZ.verified ? ' · <span class="verified-pill">✓ Verified</span>' : ''}</div>
           </div>
           <div class="dash-top-right">
+            ${liveBadge(BIZ.connection)}
             <span class="dash-rating">★ ${BIZ.rating} (${BIZ.reviewCount})</span>
           </div>
         </header>
@@ -92,6 +176,7 @@ function renderBiz() {
 function bizSection() {
   switch (BIZ.section) {
     case 'overview':   return bizOverview()
+    case 'orders':     return bizOrders()
     case 'bookings':   return bizBookings()
     case 'services':   return bizServices()
     case 'calendar':   return bizCalendar()
@@ -109,9 +194,9 @@ function bizOverview() {
   const chart = [62, 48, 71, 55, 88, 96, 40]
   return `
     <div class="kpi-row">
-      ${kpi('Today\'s bookings', BIZ.bookings.filter(b=>b.date==='Today').length, 'Reservations from the app')}
+      ${kpi('Live orders', BIZ.orders.filter(o=>o.status!=='done'&&o.status!=='declined').length, 'Active right now from the app')}
       ${kpi('Revenue today', '$' + BIZ.earnings.today.toLocaleString(), '+12% vs yesterday')}
-      ${kpi('Pending requests', pending, 'Awaiting your response')}
+      ${kpi('Pending bookings', pending, 'Awaiting your response')}
       ${kpi('Rating', BIZ.rating, BIZ.reviewCount + ' reviews')}
     </div>
     <div class="dash-grid-2">
@@ -130,6 +215,48 @@ function bizOverview() {
             <div class="activity-sub">${b.date} ${b.time} · ${b.source}</div></div>
             <span class="status-chip ${b.status}">${b.status}</span>
           </div>`).join('')}
+      </div>
+    </div>`
+}
+
+function bizOrders() {
+  if (!BIZ.orders.length) {
+    return `<div class="empty-note">No live orders yet. Orders placed in the Spotly customer app land here the instant they're sent — try placing one, or they'll appear when the app is connected.</div>`
+  }
+  const active = BIZ.orders.filter(o => o.status !== 'done' && o.status !== 'declined')
+  const past   = BIZ.orders.filter(o => o.status === 'done' || o.status === 'declined')
+  return `
+    ${active.length ? `<div class="sec-h">Live orders (${active.length})</div>${active.map(orderCard).join('')}` : '<div class="empty-note">No active orders right now 🎉</div>'}
+    ${past.length ? `<div class="sec-h" style="margin-top:22px">Completed</div>${past.map(orderCard).join('')}` : ''}`
+}
+
+function orderCard(o) {
+  const items = (o.items || []).map(i => `${i.qty}× ${i.name}`).join(', ')
+  let actions = ''
+  if (o.status === 'new') {
+    actions = `
+      <button class="dbtn dbtn-green" onclick="bizOrderAction('${o.ref}','preparing')">Accept</button>
+      <button class="dbtn dbtn-ghost" onclick="bizOrderAction('${o.ref}','declined')">Decline</button>`
+  } else if (o.status === 'preparing') {
+    actions = `<button class="dbtn dbtn-green" onclick="bizOrderAction('${o.ref}','ready')">Mark ready · dispatch</button>`
+  } else if (o.status === 'ready') {
+    actions = `<span class="list-sub">${o.driverName ? '🛵 ' + o.driverName + ' assigned' : 'Awaiting driver…'}</span>
+      <button class="dbtn dbtn-ghost" onclick="bizOrderAction('${o.ref}','done')">Mark collected</button>`
+  }
+  return `
+    <div class="book-card order-card ${o.status === 'new' ? 'is-new' : ''} ${o.fresh ? 'fresh' : ''}">
+      <div class="book-info">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+          <span class="status-chip ${o.status}">${o.status}</span>
+          <span class="book-src">${o.ref}</span>
+        </div>
+        <div class="book-name">${o.customer}</div>
+        <div class="book-meta">${items || '—'}</div>
+        <div class="book-src">📍 ${o.address}</div>
+      </div>
+      <div class="book-actions">
+        <div class="book-name" style="font-family:var(--font-head)">$${(o.total || 0).toFixed(2)}</div>
+        ${actions}
       </div>
     </div>`
 }
@@ -278,6 +405,7 @@ const DRV = {
   rating: 4.9,
   trips: 1284,
   section: 'dashboard',
+  connection: 'offline',
   available: [
     { id: 'd1', from: 'The Braai Deck, Borrowdale', to: '14 Hillside Rd, Hillside', customer: 'Rumbi K.', distance: '4.2 km', fee: 6.5 },
     { id: 'd2', from: 'Harvest Basket, Sam Levy\'s', to: '8 Argyle Rd, Avondale', customer: 'Joseph M.', distance: '6.8 km', fee: 8.0 },
@@ -308,9 +436,42 @@ function showDriver() {
   document.getElementById('view-app').hidden = true
   document.getElementById('view-business').hidden = true
   document.getElementById('view-driver').hidden = false
+  drvConnectBus()
   renderDrv()
 }
 function drvGo(section){ DRV.section = section; renderDrv() }
+
+/* ── Live job bus (mirrors driver-app JobsContext) ── */
+var drvBus = null
+var drvClaimed = {}   // refs this driver has claimed
+function drvVisible() { return !document.getElementById('view-driver').hidden }
+// local delivery stage -> canonical order status published to customer/merchant
+var DRV_STAGE_CANON = { accepted: 'ready', pickedup: 'picked_up', enroute: 'en_route', delivered: 'delivered' }
+
+function drvConnectBus() {
+  if (drvBus || !window.SpotlyBus) return
+  var S = window.SpotlyBus
+  drvBus = new S.Bus('driver')
+  drvBus.onStatus(function (s) { DRV.connection = s; if (drvVisible()) renderDrv() })
+  drvBus.watchJobs(
+    function (job) {
+      if (drvClaimed[job.ref] || (DRV.active && DRV.active.ref === job.ref)) return
+      if (DRV.available.some(function (d) { return d.ref === job.ref })) return
+      DRV.available.unshift({
+        id: 'bus-' + job.ref, ref: job.ref,
+        from: job.vendorName, to: job.dropoff, customer: job.customerName,
+        distance: job.distance || '—', fee: job.payout || 0, fresh: true,
+      })
+      if (drvVisible()) renderDrv()
+    },
+    function (ref) {
+      if (DRV.active && DRV.active.ref === ref) return
+      DRV.available = DRV.available.filter(function (d) { return d.ref !== ref })
+      if (drvVisible()) renderDrv()
+    }
+  )
+  drvBus.connect()
+}
 
 function renderDrv() {
   const el = document.getElementById('view-driver')
@@ -324,6 +485,7 @@ function renderDrv() {
             <div class="dash-sub">${DRV.name}${DRV.verified?' · <span class="verified-pill">✓ Verified</span>':''}</div>
           </div>
           <div class="dash-top-right">
+            ${liveBadge(DRV.connection)}
             <label class="switch online"><input type="checkbox" ${DRV.online?'checked':''} onchange="drvToggleOnline()"><span class="slider"></span></label>
             <span class="online-label ${DRV.online?'on':''}">${DRV.online?'Online':'Offline'}</span>
           </div>
@@ -409,17 +571,30 @@ function drvDeliveries() {
 function drvAccept(id){
   const d=DRV.available.find(x=>x.id===id); if(!d) return
   DRV.active={...d, stage:'accepted'}; DRV.available=DRV.available.filter(x=>x.id!==id)
-  DRV.section='dashboard'; renderDrv()
+  DRV.section='dashboard'
+  // Claim on the bus: removes the job from other drivers and tells the
+  // customer + merchant a driver is assigned.
+  if (drvBus && d.ref) {
+    drvClaimed[d.ref] = true
+    drvBus.claimJob(d.ref, window.SpotlyBus.config.DEMO_DRIVER_ID, window.SpotlyBus.config.DEMO_DRIVER_NAME)
+  }
+  renderDrv()
 }
 function drvReject(id){ DRV.available=DRV.available.filter(x=>x.id!==id); renderDrv() }
 function drvAdvance(){
   if(!DRV.active) return
   const i=DRV_STAGES.indexOf(DRV.active.stage)
   if(i<DRV_STAGES.length-1) DRV.active.stage=DRV_STAGES[i+1]
+  // Publish the canonical status so the customer's tracking + merchant update live.
+  if (drvBus && DRV.active.ref) {
+    drvBus.advanceOrder(DRV.active.ref, DRV_STAGE_CANON[DRV.active.stage],
+      window.SpotlyBus.config.DEMO_DRIVER_ID, window.SpotlyBus.config.DEMO_DRIVER_NAME)
+  }
   renderDrv()
 }
 function drvComplete(){
   const a=DRV.active; if(!a) return
+  if (drvBus && a.ref) drvBus.advanceOrder(a.ref, 'delivered', window.SpotlyBus.config.DEMO_DRIVER_ID, window.SpotlyBus.config.DEMO_DRIVER_NAME)
   DRV.history.unshift({id:'h'+Date.now(),date:'Just now',route:a.from.split(',')[0]+' → '+a.to.split(',')[0],fee:a.fee,rating:5})
   DRV.earnings.today+=a.fee; DRV.earnings.week+=a.fee; DRV.earnings.balance+=a.fee; DRV.earnings.trips++
   DRV.active=null; DRV.section='dashboard'; renderDrv()
@@ -521,6 +696,10 @@ function dashSidebar(portal, name, sub, nav, active, goFn) {
 }
 function kpi(label, value, sub) {
   return `<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div>${sub?`<div class="kpi-sub">${sub}</div>`:''}</div>`
+}
+function liveBadge(status) {
+  const on = status === 'connected'
+  return `<span class="live-badge ${on?'on':''}"><span class="live-dot"></span>${on?'Live':(status==='connecting'||status==='reconnecting'?'…':'Offline')}</span>`
 }
 function dashLogout() {
   localStorage.removeItem('spotly_auth')
