@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "framework": null,
+  "buildCommand": null,
+  "installCommand": null,
+  "outputDirectory": "website",
+  "rewrites": [
+    { "source": "/app", "destination": "/app.html" }
+  ]
+}
