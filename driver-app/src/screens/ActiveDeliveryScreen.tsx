@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { View, ScrollView, Pressable, StyleSheet, TextInput, Modal } from 'react-native'
+import { View, ScrollView, Pressable, StyleSheet, TextInput, Modal, Linking } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
@@ -53,9 +53,24 @@ export default function ActiveDeliveryScreen() {
   const [pinError, setPinError] = useState(false)
   const [photoState, setPhotoState] = useState<'idle' | 'snapping' | 'done'>('idle')
   const [broadcastStatus, setBroadcastStatus] = useState<MqttStatus>('offline')
+  const [etaMin, setEtaMin] = useState(0)
+  const etaEndRef = useRef(0)
+  const [summary, setSummary] = useState<{ name: string; earned: number } | null>(null)
+  const [custRating, setCustRating] = useState(0)
   const pinRef = useRef<TextInput>(null)
 
   useEffect(() => locationTracker.onStatus(setBroadcastStatus), [])
+
+  // Live ETA countdown — ticks toward arrival instead of a static number.
+  useEffect(() => {
+    if (!activeJob) return
+    etaEndRef.current = Date.now() + activeJob.estMinutes * 60000
+    setEtaMin(activeJob.estMinutes)
+    const id = setInterval(() => {
+      setEtaMin(Math.max(1, Math.ceil((etaEndRef.current - Date.now()) / 60000)))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [activeJob?.ref])
 
   useEffect(() => {
     pulse.value = withRepeat(withSequence(withTiming(1.12, { duration: 700 }), withTiming(1, { duration: 700 })), -1, false)
@@ -78,6 +93,34 @@ export default function ActiveDeliveryScreen() {
   const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }))
 
   if (!activeJob) {
+    // Post-delivery: trip summary + rate the customer (Uber-style).
+    if (summary) {
+      return (
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <View style={styles.emptyWrap}>
+            <View style={[styles.summaryIcon, { backgroundColor: colors.primary }]}>
+              <Ionicons name="checkmark-done" size={34} color={colors.white} />
+            </View>
+            <AppText variant="h2" style={{ color: colors.textPrimary, marginTop: 4 }}>Delivery complete</AppText>
+            <AppText variant="caption" style={{ color: colors.textMuted }}>You earned</AppText>
+            <AppText variant="num" style={{ color: colors.primary, fontSize: 40 }}>${summary.earned.toFixed(2)}</AppText>
+            <AppText variant="body" style={{ color: colors.textMuted, marginTop: 18 }}>
+              Rate {summary.name.split(' ')[0]}
+            </AppText>
+            <View style={styles.summaryStars}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <Pressable key={n} onPress={() => setCustRating(n)} hitSlop={6}>
+                  <Ionicons name="star" size={34} color={n <= custRating ? colors.amber : colors.border} />
+                </Pressable>
+              ))}
+            </View>
+            <Tappable onPress={() => nav.navigate('MainTabs')} style={styles.homeBtn}>
+              <AppText variant="bodyBold" style={{ color: colors.white }}>{custRating ? 'Submit & find next job' : 'Back to jobs'}</AppText>
+            </Tappable>
+          </View>
+        </SafeAreaView>
+      )
+    }
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.emptyWrap}>
@@ -105,11 +148,14 @@ export default function ActiveDeliveryScreen() {
       : { color: colors.textLight, label: 'OFFLINE' }
 
   const finish = () => {
+    const earned = activeJob.payout + activeJob.tip
+    const name = activeJob.customerName
     setCompleting(false)
     setPinInput('')
     setPhotoState('idle')
     finishActiveJob()
-    nav.navigate('MainTabs')
+    // activeJob is now null → the summary/rating view takes over.
+    setSummary({ name, earned })
   }
 
   const submitPin = (value: string) => {
@@ -182,7 +228,7 @@ export default function ActiveDeliveryScreen() {
               </View>
             </View>
           </View>
-          <AppText variant="num" style={{ color: colors.white, fontSize: 17 }}>{activeJob.estMinutes}′</AppText>
+          <AppText variant="num" style={{ color: colors.white, fontSize: 17 }}>{etaMin || activeJob.estMinutes}′</AppText>
         </Animated.View>
 
         {/* Live map: own position, pickup, drop-off(s), traveled path */}
@@ -265,7 +311,7 @@ export default function ActiveDeliveryScreen() {
             <Pressable style={styles.customerBtn} onPress={() => nav.navigate('Chat')}>
               <Ionicons name="chatbubble-outline" size={17} color={colors.primary} />
             </Pressable>
-            <Pressable style={styles.customerBtn} onPress={() => nav.navigate('Chat')}>
+            <Pressable style={styles.customerBtn} onPress={() => Linking.openURL(`tel:${activeJob.customerPhone.replace(/\s/g, '')}`)}>
               <Ionicons name="call-outline" size={17} color={colors.primary} />
             </Pressable>
           </View>
@@ -420,6 +466,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   },
   sheetBtn: { alignSelf: 'stretch', borderRadius: 30, paddingVertical: 15, alignItems: 'center', marginTop: 14 },
 
-  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg, gap: 12 },
-  homeBtn: { backgroundColor: colors.primary, borderRadius: 30, paddingVertical: 12, paddingHorizontal: 26, marginTop: 8 },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg, gap: 6 },
+  homeBtn: { backgroundColor: colors.primary, borderRadius: 30, paddingVertical: 14, paddingHorizontal: 30, marginTop: 20 },
+  summaryIcon: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  summaryStars: { flexDirection: 'row', gap: 10, marginTop: 12 },
 })

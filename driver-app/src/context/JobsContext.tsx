@@ -115,7 +115,11 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     if (activeJob) {
       if (trackedRef.current !== activeJob.ref) {
         trackedRef.current = activeJob.ref
-        locationTracker.start(activeJob.ref)
+        locationTracker.start(activeJob.ref, {
+          pickup: activeJob.pickupCoord,
+          dropoff: activeJob.dropoffCoord,
+          stops: (activeJob.extraStops ?? []).flatMap(s => (s.coord ? [s.coord] : [])),
+        })
       }
     } else if (trackedRef.current) {
       trackedRef.current = null
