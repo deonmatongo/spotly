@@ -21,6 +21,7 @@ import { useTickets } from '../context/TicketsContext'
 import { useNotifications } from '../context/NotificationsContext'
 import { currentUser, offers, Offer } from '../data/mock'
 import { orderBus } from '../services/orderBus'
+import { useActiveOrder } from '../context/ActiveOrderContext'
 import {
   Order, DEMO_MERCHANT_ID, DEMO_MERCHANT_NAME, MERCHANT_COORD, FALLBACK_DROPOFF,
 } from '@spotly/shared'
@@ -46,6 +47,7 @@ export default function CheckoutScreen() {
   const { items, totalItems, clearCart, hasTickets } = useCart()
   const { addTicket } = useTickets()
   const { addNotification } = useNotifications()
+  const { startTracking } = useActiveOrder()
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery')
   const [payMethod, setPayMethod] = useState('card')
   const [ticketEmail, setTicketEmail] = useState(currentUser.email)
@@ -155,6 +157,15 @@ export default function CheckoutScreen() {
         prepMinutes: 20,
       }
       orderBus.placeOrder(order)
+      // Surface it as the live activity on Home + tab bar.
+      startTracking({
+        ref: orderNum,
+        merchantName: order.merchantName,
+        total: finalTotal,
+        items: itemCount,
+        address: order.address,
+        placedAt: order.placedAt,
+      })
 
       addNotification({
         type: 'order',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native'
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, Share } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
@@ -9,33 +9,11 @@ import * as Calendar from 'expo-calendar'
 import { colors, spacing, radius, shadow } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
 import { RootStackParamList } from '../navigation'
+import TicketQR from '../components/TicketQR'
+import { parseEventDate } from '../utils/eventDate'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'TicketConfirmation'>
-
-function QRCode({ value, size = 120 }: { value: string; size?: number }) {
-  const cells = 11
-  const cell = size / cells
-  // Deterministic "QR" pattern from confirmation code chars
-  const hash = value.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  return (
-    <View style={{ width: size, height: size, flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff' }}>
-      {Array.from({ length: cells * cells }).map((_, i) => {
-        const row = Math.floor(i / cells)
-        const col = i % cells
-        // Always fill corners (finder patterns)
-        const corner = (row < 3 && col < 3) || (row < 3 && col >= cells - 3) || (row >= cells - 3 && col < 3)
-        const filled = corner || ((hash * (i + 1) * 31) % 7 < 3)
-        return (
-          <View
-            key={i}
-            style={{ width: cell, height: cell, backgroundColor: filled ? '#000' : '#fff' }}
-          />
-        )
-      })}
-    </View>
-  )
-}
 
 export default function TicketConfirmationScreen() {
   const { colors } = useTheme()
@@ -64,11 +42,8 @@ export default function TicketConfirmationScreen() {
         return
       }
 
-      // Parse a rough date — default to 1 month from now if unparseable
-      const startDate = new Date()
-      startDate.setMonth(startDate.getMonth() + 1)
-      const endDate = new Date(startDate)
-      endDate.setHours(endDate.getHours() + 3)
+      // Land on the real event date/time parsed from the ticket.
+      const { start: startDate, end: endDate } = parseEventDate(eventDate, eventTime)
 
       await Calendar.createEventAsync(defaultCal.id, {
         title: `🎟 ${eventName}`,
@@ -136,7 +111,7 @@ export default function TicketConfirmationScreen() {
             <View style={styles.ticketDivider} />
 
             <View style={styles.ticketRight}>
-              <QRCode value={orderNumber} size={100} />
+              <TicketQR value={orderNumber} size={100} />
               <Text style={styles.qrLabel}>Scan at entry</Text>
             </View>
           </View>
@@ -164,7 +139,10 @@ export default function TicketConfirmationScreen() {
             </Text>
           </Pressable>
 
-          <Pressable style={styles.actionBtn}>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => Share.share({ message: `I'm going to ${eventName}! 🎟 ${eventDate}${eventTime ? ' · ' + eventTime : ''} at ${venue}. Booked on Spotly · ${orderNumber}` })}
+          >
             <Ionicons name="share-outline" size={18} color={colors.textPrimary} />
             <Text style={styles.actionBtnText}>Share</Text>
           </Pressable>

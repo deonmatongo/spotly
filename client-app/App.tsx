@@ -24,6 +24,7 @@ import { FavoritesProvider } from './src/context/FavoritesContext'
 import { BookingsProvider } from './src/context/BookingsContext'
 import { NotificationsProvider } from './src/context/NotificationsContext'
 import { ReviewsProvider } from './src/context/ReviewsContext'
+import { ActiveOrderProvider } from './src/context/ActiveOrderContext'
 import { colors, fonts } from './src/theme'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 
@@ -139,11 +140,13 @@ export default function App() {
               <ReviewsProvider>
                 <TicketsProvider>
                   <CartProvider>
-                    <GestureHandlerRootView style={{ flex: 1 }}>
-                      <SafeAreaProvider>
-                        <ThemedNavRoot />
-                      </SafeAreaProvider>
-                    </GestureHandlerRootView>
+                    <ActiveOrderProvider>
+                      <GestureHandlerRootView style={{ flex: 1 }}>
+                        <SafeAreaProvider>
+                          <ThemedNavRoot />
+                        </SafeAreaProvider>
+                      </GestureHandlerRootView>
+                    </ActiveOrderProvider>
                   </CartProvider>
                 </TicketsProvider>
               </ReviewsProvider>

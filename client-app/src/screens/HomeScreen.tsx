@@ -11,6 +11,7 @@ import { useTheme, Palette } from '../context/ThemeContext'
 import { listings, currentUser } from '../data/mock'
 import VenueCard from '../components/VenueCard'
 import Tappable from '../components/Tappable'
+import LiveOrderBanner from '../components/LiveOrderBanner'
 import useCountUp from '../hooks/useCountUp'
 import { RootStackParamList } from '../navigation'
 import { Listing } from '../data/mock'
@@ -116,6 +117,9 @@ export default function HomeScreen() {
       </LinearGradient>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+        {/* ── Live order (Uber-style live activity) ── */}
+        <LiveOrderBanner />
+
         {/* ── Quick categories ── */}
         <Animated.View entering={FadeIn.duration(400)} style={styles.catGrid}>
           {CATEGORIES.map(cat => (

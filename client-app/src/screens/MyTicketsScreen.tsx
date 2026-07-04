@@ -9,25 +9,9 @@ import { colors, spacing, radius, shadow } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
 import { useTickets } from '../context/TicketsContext'
 import { RootStackParamList } from '../navigation'
+import TicketQR from '../components/TicketQR'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
-
-function QRCode({ value, size = 80 }: { value: string; size?: number }) {
-  const cells = 11
-  const cell = size / cells
-  const hash = value.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  return (
-    <View style={{ width: size, height: size, flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#fff', borderRadius: 4, overflow: 'hidden' }}>
-      {Array.from({ length: cells * cells }).map((_, i) => {
-        const row = Math.floor(i / cells)
-        const col = i % cells
-        const corner = (row < 3 && col < 3) || (row < 3 && col >= cells - 3) || (row >= cells - 3 && col < 3)
-        const filled = corner || ((hash * (i + 1) * 31) % 7 < 3)
-        return <View key={i} style={{ width: cell, height: cell, backgroundColor: filled ? '#000' : '#fff' }} />
-      })}
-    </View>
-  )
-}
 
 export default function MyTicketsScreen() {
   const { colors } = useTheme()
@@ -129,7 +113,7 @@ function TicketCard({ ticket, past }: { ticket: any; past?: boolean }) {
         <View style={styles.divider} />
 
         <View style={styles.cardRight}>
-          <QRCode value={ticket.confirmationCode} size={84} />
+          <TicketQR value={ticket.confirmationCode} size={84} />
           <Text style={styles.qrHint}>Scan at entry</Text>
           {past && (
             <View style={styles.usedStamp}>

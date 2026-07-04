@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, Animated, Dimensions,
+  View, Text, ScrollView, Pressable, StyleSheet, Animated, Dimensions, Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { colors, spacing, radius, shadow } from '../theme'
+import { colors, spacing, radius, shadow, fonts } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
 import { RootStackParamList } from '../navigation'
 import TrackingMap from '../components/TrackingMap'
@@ -15,6 +15,10 @@ import { getEtaMinutes } from '../services/eta'
 import { DEST_COORD } from '../config/tracking'
 import { orderBus } from '../services/orderBus'
 import { statusToStage } from '@spotly/shared'
+import { useActiveOrder } from '../context/ActiveOrderContext'
+import { useNotifications } from '../context/NotificationsContext'
+
+const DRIVER_PHONE = '+263771234567'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'OrderTracking'>
@@ -31,7 +35,11 @@ export default function OrderTrackingScreen() {
   const styles = makeStyles(colors)
   const nav = useNavigation<Nav>()
   const { orderNumber, total, items } = useRoute<Route>().params
+  const { clearActiveOrder } = useActiveOrder()
+  const { addNotification } = useNotifications()
   const [stage, setStage] = useState(0)
+  const [driverName, setDriverName] = useState<string | null>(null)
+  const [rated, setRated] = useState(0)
   const progressAnim = useRef(new Animated.Value(0)).current
   const pulseAnim = useRef(new Animated.Value(1)).current
   // Once the merchant/driver publish real progress, the bus drives the timeline
@@ -61,6 +69,7 @@ export default function OrderTrackingScreen() {
   // to real events.
   useEffect(() => {
     const off = orderBus.trackOrder(orderNumber, evt => {
+      if (evt.driverName) setDriverName(evt.driverName)
       const st = statusToStage(evt.status)
       if (st > 0) hasLiveRef.current = true
       if (!hasLiveRef.current) return
@@ -105,6 +114,38 @@ export default function OrderTrackingScreen() {
   const etaMinutes = liveEta ?? stageEta
   const isDelivered = stage === STAGES.length - 1
 
+  // Uber-style live countdown: the displayed ETA ticks down each second between
+  // real ETA refreshes, so the number feels alive rather than static.
+  const [displayEta, setDisplayEta] = useState(etaMinutes)
+  const etaBaseRef = useRef({ mins: etaMinutes, at: Date.now() })
+  useEffect(() => {
+    etaBaseRef.current = { mins: etaMinutes, at: Date.now() }
+    setDisplayEta(etaMinutes)
+  }, [etaMinutes])
+  useEffect(() => {
+    if (isDelivered) return
+    const id = setInterval(() => {
+      const elapsedMin = (Date.now() - etaBaseRef.current.at) / 60000
+      setDisplayEta(Math.max(1, Math.round(etaBaseRef.current.mins - elapsedMin)))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [isDelivered])
+
+  const driverLabel = driverName ?? 'Tatenda Moyo'
+
+  const handleCancel = () => {
+    orderBus.cancelOrder(orderNumber)
+    clearActiveOrder()
+    addNotification({ type: 'order', title: 'Order cancelled', body: `Order ${orderNumber} was cancelled.` })
+    nav.popToTop()
+  }
+
+  const submitRating = (n: number) => {
+    setRated(n)
+    addNotification({ type: 'review', title: 'Thanks for your feedback!', body: `You rated your delivery ${n}/5 ⭐️` })
+    clearActiveOrder()
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topBar}>
@@ -133,7 +174,7 @@ export default function OrderTrackingScreen() {
                 <Ionicons name="bicycle-outline" size={28} color={colors.white} />
               </Animated.View>
               <Text style={styles.etaTitle}>
-                {etaMinutes} min
+                {displayEta} min
               </Text>
               <Text style={styles.etaSub}>{STAGES[stage].desc}</Text>
             </>
@@ -208,10 +249,10 @@ export default function OrderTrackingScreen() {
             <View style={styles.riderCard}>
               <View style={styles.riderLeft}>
                 <View style={styles.riderAvatar}>
-                  <Text style={styles.riderInitial}>T</Text>
+                  <Text style={styles.riderInitial}>{driverLabel.charAt(0)}</Text>
                 </View>
                 <View>
-                  <Text style={styles.riderName}>Tatenda Moyo</Text>
+                  <Text style={styles.riderName}>{driverLabel}</Text>
                   <View style={styles.riderStars}>
                     {[1,2,3,4,5].map(i => (
                       <Ionicons key={i} name="star" size={11} color={colors.amber} />
@@ -221,10 +262,10 @@ export default function OrderTrackingScreen() {
                 </View>
               </View>
               <View style={styles.riderActions}>
-                <Pressable style={styles.riderBtn}>
+                <Pressable style={styles.riderBtn} onPress={() => Linking.openURL(`tel:${DRIVER_PHONE}`)}>
                   <Ionicons name="call-outline" size={18} color={colors.primary} />
                 </Pressable>
-                <Pressable style={styles.riderBtn}>
+                <Pressable style={styles.riderBtn} onPress={() => nav.navigate('Chat', { driverName: driverLabel, phone: DRIVER_PHONE })}>
                   <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
                 </Pressable>
               </View>
@@ -241,22 +282,37 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
+        {/* Rate your delivery (Uber-style, after arrival) */}
+        {isDelivered && (
+          <View style={styles.ratingCard}>
+            <Text style={styles.sectionTitle}>Rate your delivery</Text>
+            {rated ? (
+              <Text style={styles.ratingThanks}>Thanks for your feedback! {'★'.repeat(rated)} {rated}/5</Text>
+            ) : (
+              <>
+                <Text style={styles.ratingPrompt}>How was {driverLabel}'s delivery?</Text>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <Pressable key={n} onPress={() => submitRating(n)} hitSlop={6} style={styles.starBtn}>
+                      <Ionicons name="star" size={30} color={colors.border} />
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
         {/* Actions */}
         <View style={styles.actionsRow}>
-          <Pressable style={styles.actionBtn}>
+          <Pressable style={styles.actionBtn} onPress={() => nav.navigate('Support')}>
             <Ionicons name="help-circle-outline" size={18} color={colors.textPrimary} />
             <Text style={styles.actionBtnText}>Help</Text>
           </Pressable>
           {!isDelivered && stage < 2 && (
-            <Pressable style={[styles.actionBtn, styles.actionBtnRed]}>
+            <Pressable style={[styles.actionBtn, styles.actionBtnRed]} onPress={handleCancel}>
               <Ionicons name="close-circle-outline" size={18} color={colors.red} />
               <Text style={[styles.actionBtnText, { color: colors.red }]}>Cancel Order</Text>
-            </Pressable>
-          )}
-          {isDelivered && (
-            <Pressable style={[styles.actionBtn, styles.actionBtnGreen]}>
-              <Ionicons name="star-outline" size={18} color={colors.primary} />
-              <Text style={[styles.actionBtnText, { color: colors.primary }]}>Leave a Review</Text>
             </Pressable>
           )}
         </View>
@@ -355,6 +411,12 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   },
   itemsSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   itemsSummaryText: { fontSize: 14, color: colors.textMuted },
+
+  ratingCard: { backgroundColor: colors.surfaceAlt, borderRadius: radius.lg, padding: 16, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border },
+  ratingPrompt: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
+  starsRow: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
+  starBtn: { padding: 2 },
+  ratingThanks: { fontSize: 14, color: colors.primary, fontFamily: fonts.bodySemi },
 
   actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   actionBtn: {
