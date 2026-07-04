@@ -65,7 +65,6 @@ const BIZ_NAV = [
 
 function showBusiness() {
   if (typeof hideAuthViews === 'function') hideAuthViews()
-  document.getElementById('view-app').hidden = true
   document.getElementById('view-driver').hidden = true
   document.getElementById('view-business').hidden = false
   bizConnectBus()
@@ -433,7 +432,6 @@ const DRV_NAV = [
 
 function showDriver() {
   if (typeof hideAuthViews === 'function') hideAuthViews()
-  document.getElementById('view-app').hidden = true
   document.getElementById('view-business').hidden = true
   document.getElementById('view-driver').hidden = false
   drvConnectBus()
