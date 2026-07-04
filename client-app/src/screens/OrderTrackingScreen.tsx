@@ -14,7 +14,7 @@ import { DriverFix } from '../hooks/useDriverLocation'
 import { getEtaMinutes } from '../services/eta'
 import { DEST_COORD } from '../config/tracking'
 import { orderBus } from '../services/orderBus'
-import { OrderStatus } from '@spotly/shared'
+import { statusToStage } from '@spotly/shared'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'OrderTracking'>
@@ -25,21 +25,6 @@ const STAGES = [
   { id: 2, icon: 'bicycle-outline' as const, label: 'On The Way', desc: 'Your rider has picked up the order', time: '~15 min' },
   { id: 3, icon: 'home-outline' as const, label: 'Delivered', desc: 'Your order has arrived. Enjoy!', time: '' },
 ]
-
-// Map the canonical order status (published by the merchant + driver apps) onto
-// this screen's 4-stage timeline.
-function statusToStage(s: OrderStatus): number {
-  switch (s) {
-    case 'placed':
-    case 'accepted': return 0
-    case 'preparing':
-    case 'ready': return 1
-    case 'picked_up':
-    case 'en_route': return 2
-    case 'delivered': return 3
-    default: return 0
-  }
-}
 
 export default function OrderTrackingScreen() {
   const { colors } = useTheme()

@@ -3,6 +3,7 @@
 export * from './types'
 export * from './config'
 export * from './topics'
+export * from './adapters'
 export { MqttClient } from './MqttClient'
 export type { MqttStatus, MessageCallback } from './MqttClient'
 export { SpotlyClient } from './SpotlyClient'

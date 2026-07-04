@@ -1,39 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { MerchantOrder, OrderStatus, seedOrders, currentStore } from '../data/mock'
 import {
-  SpotlyClient, Order, OrderStatus as CanonicalStatus, DeliveryJob,
+  SpotlyClient, Order, DeliveryJob, canonicalToMerchant, merchantToCanonical,
   DEMO_MERCHANT_ID, DEMO_MERCHANT_NAME, MERCHANT_COORD, FALLBACK_DROPOFF, MqttStatus,
 } from '@spotly/shared'
 
-// --- Canonical <-> merchant status adapters --------------------------------
-// The merchant UI speaks new/preparing/ready/done/declined; the bus speaks the
-// canonical lifecycle shared with the customer and driver apps.
-function canonicalToMerchant(s: CanonicalStatus): OrderStatus {
-  switch (s) {
-    case 'placed': return 'new'
-    case 'accepted': return 'preparing'
-    case 'preparing': return 'preparing'
-    case 'ready': return 'ready'
-    case 'picked_up':
-    case 'en_route':
-    case 'delivered': return 'done'
-    case 'declined':
-    case 'cancelled': return 'declined'
-    default: return 'new'
-  }
-}
-
-function merchantToCanonical(s: OrderStatus): CanonicalStatus {
-  switch (s) {
-    case 'new': return 'placed'
-    case 'preparing': return 'preparing'
-    case 'ready': return 'ready'
-    case 'done': return 'delivered'
-    case 'declined': return 'declined'
-    default: return 'placed'
-  }
-}
-
+// The merchant UI speaks new/preparing/ready/done/declined; canonicalToMerchant
+// and merchantToCanonical (from @spotly/shared) bridge to the bus vocabulary.
 function sharedOrderToMerchant(o: Order): MerchantOrder {
   return {
     id: o.ref,
