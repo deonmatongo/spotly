@@ -75,3 +75,15 @@ export async function updateName(accessToken: string, name: string): Promise<voi
     body: JSON.stringify({ name }),
   })
 }
+
+// Register an Expo push token for this user so the backend can send remote
+// pushes. Best-effort — fails silently on simulators.
+export async function registerPushToken(userId: string, accessToken: string, pushToken: string): Promise<void> {
+  try {
+    await fetch(`${getApiUrl()}/auth/push-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ userId, pushToken }),
+    })
+  } catch { /* best-effort */ }
+}

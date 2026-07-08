@@ -5,6 +5,7 @@ import {
   DEMO_MERCHANT_ID, DEMO_MERCHANT_NAME, MERCHANT_COORD, FALLBACK_DROPOFF, MqttStatus,
 } from '@spotly/shared'
 import { notify } from '../services/notify'
+import { useNotifications } from './NotificationsContext'
 
 // The merchant UI speaks new/preparing/ready/done/declined; canonicalToMerchant
 // and merchantToCanonical (from @spotly/shared) bridge to the bus vocabulary.
@@ -78,6 +79,7 @@ interface OrdersContextType {
 const OrdersContext = createContext<OrdersContextType | null>(null)
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
+  const { addNotification } = useNotifications()
   const [orders, setOrders] = useState<MerchantOrder[]>(
     () => seedOrders.map(o => ({ ...o, placedTs: o.placedTs ?? agoToTs(o.placedAt) }))
   )
@@ -118,7 +120,9 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         // Ring the alert only for genuinely-new orders that arrive live.
         if (isBrandNew && alertsReady.current && incoming.status === 'new') {
           setIncomingOrder(incoming)
-          notify('New order 🛎️', `${incoming.customerName} · $${incoming.total.toFixed(2)} · ${incoming.items.length} items`)
+          const notifBody = `${incoming.customerName} · $${incoming.total.toFixed(2)} · ${incoming.items.length} items`
+          notify('New order 🛎️', notifBody)
+          addNotification({ type: 'order', title: `New order — ${incoming.ref}`, body: notifBody })
         }
         setOrders(prev => {
           const existing = prev.find(o => o.ref === incoming.ref)

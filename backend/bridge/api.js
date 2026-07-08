@@ -25,6 +25,7 @@ const cors     = require('cors')
 const mqtt     = require('mqtt')
 const { router: authRouter, requireAuth } = require('./auth')
 const { router: paymentsRouter } = require('./payments')
+const { router: pushRouter, sendPush } = require('./push')
 
 const {
   DB_PATH,
@@ -35,6 +36,7 @@ const {
   upsertTicket, getTicket, getTicketsByEvent, getAllTickets, countTickets,
   countPayments, countPayouts,
   rowToOrder, orderToRow,
+  getUserByPhone,
 } = require('./db')
 
 const API_PORT = Number(process.env.API_PORT || 4001)
@@ -86,6 +88,25 @@ function startApi(mqttUrl, opts = {}) {
         driver_name: data.driverName || null,
         ts:          data.ts || now,
       })
+
+      // Push the customer when their order status advances
+      if (data.status && ['preparing', 'ready', 'picked_up', 'en_route', 'delivered', 'declined'].includes(data.status)) {
+        const orderRow = getOrder.get(data.ref)
+        if (orderRow?.customer_phone) {
+          const customer = getUserByPhone.get(orderRow.customer_phone)
+          if (customer) {
+            const pushMsg = {
+              preparing:  { title: 'Order confirmed 👨‍🍳', body: `${orderRow.merchant_name || 'Your merchant'} is preparing your order.` },
+              ready:      { title: 'Order ready 📦', body: 'Your order is packed and waiting for your rider.' },
+              picked_up:  { title: 'Rider picked up 🛵', body: 'Your order is on its way!' },
+              en_route:   { title: 'Almost there 📍', body: 'Your rider is getting close.' },
+              delivered:  { title: 'Delivered ✅', body: `Order ${data.ref} delivered. Enjoy!` },
+              declined:   { title: 'Order declined', body: `Sorry, ${orderRow.merchant_name || 'the merchant'} couldn't accept your order.` },
+            }[data.status]
+            if (pushMsg) sendPush(customer.id, pushMsg.title, pushMsg.body, { ref: data.ref, status: data.status })
+          }
+        }
+      }
     }
 
     // merchants/{id}/orders/{ref} — full order payload (retained)
@@ -93,6 +114,17 @@ function startApi(mqttUrl, opts = {}) {
     if (parts[0] === 'merchants' && parts[2] === 'orders' && parts[3]) {
       if (!data?.ref || !raw) return
       upsertFullOrder.run(orderToRow(data, Date.now()))
+
+      // Push merchant on new orders
+      if (data?.status === 'placed') {
+        try {
+          const merchants = require('./db').db.prepare("SELECT id FROM users WHERE role = 'merchant' LIMIT 5").all()
+          const itemCount = (data.items || []).reduce((s, i) => s + (i.qty || 1), 0)
+          for (const m of merchants) {
+            sendPush(m.id, 'New order 🛎️', `${data.customerName || 'Customer'} · $${data.total?.toFixed(2) ?? '0.00'} · ${itemCount} item${itemCount !== 1 ? 's' : ''}`, { ref: data.ref, type: 'new_order' })
+          }
+        } catch {}
+      }
     }
 
     // merchants/{id}/menu — full menu payload (retained)
@@ -130,6 +162,9 @@ function startApi(mqttUrl, opts = {}) {
 
   // Payments + payouts
   app.use('/payments', paymentsRouter)
+
+  // Push notifications
+  app.use('/push', pushRouter)
 
   // Health
   app.get('/api/health', (_req, res) => {

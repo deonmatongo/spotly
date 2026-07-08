@@ -228,6 +228,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_payouts_status ON payouts(status);
 `)
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS push_tokens (
+    user_id    TEXT NOT NULL,
+    token      TEXT NOT NULL,
+    platform   TEXT DEFAULT 'expo',
+    updated_at INTEGER DEFAULT 0,
+    PRIMARY KEY (user_id, token)
+  );
+  CREATE INDEX IF NOT EXISTS idx_push_user ON push_tokens(user_id);
+`)
+
+// push token prepared statements
+
 const insertUser     = db.prepare('INSERT OR IGNORE INTO users (id,phone,name,role,status,created_at) VALUES (@id,@phone,@name,@role,@status,@created_at)')
 const getUserByPhone = db.prepare('SELECT * FROM users WHERE phone = ?')
 const getUserById    = db.prepare('SELECT * FROM users WHERE id = ?')
@@ -254,6 +267,10 @@ const insertPayout         = db.prepare('INSERT INTO payouts (id,driver_id,amoun
 const getPayoutsByDriver   = db.prepare('SELECT * FROM payouts WHERE driver_id = ? ORDER BY requested_at DESC LIMIT 200')
 const updatePayoutStatus   = db.prepare('UPDATE payouts SET status = @status, paid_at = @paid_at WHERE id = @id')
 const countPayouts         = db.prepare('SELECT COUNT(*) AS n FROM payouts')
+
+const upsertPushToken  = db.prepare(`INSERT INTO push_tokens (user_id, token, platform, updated_at) VALUES (@user_id, @token, @platform, @updated_at) ON CONFLICT(user_id, token) DO UPDATE SET updated_at = excluded.updated_at`)
+const getPushTokens    = db.prepare('SELECT token FROM push_tokens WHERE user_id = ?')
+const deletePushToken  = db.prepare('DELETE FROM push_tokens WHERE user_id = ? AND token = ?')
 
 // ── Conversion helpers ───────────────────────────────────────────────────────
 
@@ -323,4 +340,6 @@ module.exports = {
   insertPayment, getPaymentById, getPaymentByOrderRef, updatePaymentStatus, getPaymentsByStatus, countPayments,
   // payouts
   insertPayout, getPayoutsByDriver, updatePayoutStatus, countPayouts,
+  // push tokens
+  upsertPushToken, getPushTokens, deletePushToken,
 }

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, ReactNod
 import { availableJobs as initialJobs, offerPool, DeliveryJob, JobStatus, JobType } from '../data/mock'
 import { locationTracker } from '../services/locationTracker'
 import { notify } from '../services/notify'
+import { useNotifications } from './NotificationsContext'
 import { useDriver } from './DriverContext'
 import {
   SpotlyClient, DeliveryJob as BusJob, OrderStatus as CanonicalStatus,
@@ -69,6 +70,7 @@ interface JobsContextType {
 const JobsContext = createContext<JobsContextType | null>(null)
 
 export function JobsProvider({ children }: { children: ReactNode }) {
+  const { addNotification } = useNotifications()
   const [availableJobs, setAvailableJobs] = useState<DeliveryJob[]>(initialJobs)
   const [activeJob, setActiveJob] = useState<DeliveryJob | null>(null)
   const [completedJobs, setCompletedJobs] = useState<DeliveryJob[]>([])
@@ -128,7 +130,9 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         if (claimedRefs.current.has(job.ref) || activeRef.current === job.ref) return
         setAvailableJobs(prev => {
           if (prev.some(j => j.ref === job.ref)) return prev
-          notify('New delivery offer 🛵', `${job.vendorName} · $${(job.payout + (job.tip || 0)).toFixed(2)} · ${job.distance}`)
+          const offerBody = `${job.vendorName} · $${(job.payout + (job.tip || 0)).toFixed(2)} · ${job.distance}`
+          notify('New delivery offer 🛵', offerBody)
+          addNotification({ type: 'order', title: 'New delivery offer', body: offerBody })
           return [busJobToLocal(job), ...prev]
         })
       },

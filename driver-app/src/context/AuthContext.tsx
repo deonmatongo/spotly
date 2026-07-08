@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import * as SecureStore from 'expo-secure-store'
-import { requestOtp, verifyOtp, refreshAccessToken, logout as apiLogout, getMe, SpotlyUser } from '@spotly/shared'
+import * as Notifications from 'expo-notifications'
+import { requestOtp, verifyOtp, refreshAccessToken, logout as apiLogout, getMe, registerPushToken, SpotlyUser } from '@spotly/shared'
+import { ensureNotifPermission } from '../services/notify'
 
 const KEY_ACCESS  = 'spotly_driver_access'
 const KEY_REFRESH = 'spotly_driver_refresh'
@@ -51,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await SecureStore.setItemAsync(KEY_REFRESH, tokens.refreshToken)
     setToken(tokens.accessToken)
     setUser(tokens.user)
+    // Register push token for remote notifications (best-effort)
+    try {
+      await ensureNotifPermission()
+      const tokenResult = await Notifications.getExpoPushTokenAsync()
+      await registerPushToken(tokens.user.id, tokens.accessToken, tokenResult.data)
+    } catch {
+      // Simulators don't support push tokens — that's fine
+    }
   }, [])
 
   const handleLogout = useCallback(async () => {

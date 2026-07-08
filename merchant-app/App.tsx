@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext'
 import { StoreProvider } from './src/context/StoreContext'
 import { OrdersProvider } from './src/context/OrdersContext'
 import { MenuProvider } from './src/context/MenuContext'
+import { NotificationsProvider } from './src/context/NotificationsContext'
 import { configureBroker } from '@spotly/shared'
 import { colors } from './src/theme'
 import AppText from './src/components/AppText'
@@ -130,17 +131,19 @@ function AppGate() {
   )
 
   return (
-    <StoreProvider>
-      <OrdersProvider>
-        <MenuProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <SafeAreaProvider>
-              <ThemedNavRoot />
-            </SafeAreaProvider>
-          </GestureHandlerRootView>
-        </MenuProvider>
-      </OrdersProvider>
-    </StoreProvider>
+    <NotificationsProvider>
+      <StoreProvider>
+        <OrdersProvider>
+          <MenuProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <SafeAreaProvider>
+                <ThemedNavRoot />
+              </SafeAreaProvider>
+            </GestureHandlerRootView>
+          </MenuProvider>
+        </OrdersProvider>
+      </StoreProvider>
+    </NotificationsProvider>
   )
 }
 

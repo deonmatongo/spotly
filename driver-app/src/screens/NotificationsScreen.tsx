@@ -6,21 +6,21 @@ import { useNavigation } from '@react-navigation/native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { spacing, cut } from '../theme'
 import { Palette, useTheme } from '../context/ThemeContext'
-import { useNotifications, MerchantNotification } from '../context/NotificationsContext'
+import { useNotifications, DriverNotification, DriverNotifType } from '../context/NotificationsContext'
 import AppText from '../components/AppText'
 
-const TYPE_META: Record<MerchantNotification['type'], { icon: string; color: string }> = {
-  order: { icon: 'receipt', color: '#F97316' },
-  review: { icon: 'star', color: '#F59E0B' },
-  payout: { icon: 'wallet', color: '#22C55E' },
+const TYPE_META: Record<DriverNotifType, { icon: string; color: string }> = {
+  order:  { icon: 'receipt',   color: '#F97316' },
+  payout: { icon: 'wallet',    color: '#22C55E' },
   system: { icon: 'megaphone', color: '#3B82F6' },
+  promo:  { icon: 'pricetag',  color: '#A855F7' },
 }
 
 export default function NotificationsScreen() {
   const { colors } = useTheme()
   const styles = makeStyles(colors)
   const nav = useNavigation()
-  const { notifications: notifs, markAllRead, markRead, unreadCount } = useNotifications()
+  const { notifications, markAllRead, markRead, unreadCount } = useNotifications()
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -37,13 +37,16 @@ export default function NotificationsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {notifs.map((notif, i) => {
+        {notifications.map((notif, i) => {
           const meta = TYPE_META[notif.type]
           return (
             <Animated.View key={notif.id} entering={FadeInDown.delay(i * 50).springify().damping(16)}>
               <Pressable
                 onPress={() => markRead(notif.id)}
-                style={[styles.notifRow, { backgroundColor: notif.read ? colors.surface : colors.surfaceAlt, borderColor: notif.read ? colors.border : colors.primary + '44' }]}
+                style={[
+                  styles.notifRow,
+                  { backgroundColor: notif.read ? colors.surface : colors.surfaceAlt, borderColor: notif.read ? colors.border : colors.primary + '44' },
+                ]}
               >
                 {!notif.read && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
                 <View style={[styles.iconWrap, { backgroundColor: meta.color + '22' }]}>
@@ -66,9 +69,15 @@ export default function NotificationsScreen() {
 
 const makeStyles = (colors: Palette) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: spacing.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
-  backBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: spacing.md, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 10, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
   content: { padding: spacing.md },
   notifRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,

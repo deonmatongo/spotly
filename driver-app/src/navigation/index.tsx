@@ -14,6 +14,7 @@ import ShopChecklistScreen from '../screens/ShopChecklistScreen'
 import FareBreakdownScreen from '../screens/FareBreakdownScreen'
 import ProDashboardScreen from '../screens/ProDashboardScreen'
 import SafetyHubScreen from '../screens/SafetyHubScreen'
+import NotificationsScreen from '../screens/NotificationsScreen'
 import CustomTabBar from '../components/CustomTabBar'
 
 export type RootStackParamList = {
@@ -25,6 +26,7 @@ export type RootStackParamList = {
   FareBreakdown: { fare: FareBreakdown }
   ProDashboard: undefined
   SafetyHub: undefined
+  Notifications: undefined
 }
 
 export type TabParamList = {
@@ -62,6 +64,7 @@ export default function RootNavigator() {
       <Stack.Screen name="FareBreakdown" component={FareBreakdownScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="ProDashboard" component={ProDashboardScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="SafetyHub" component={SafetyHubScreen} options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right' }} />
     </Stack.Navigator>
   )
 }

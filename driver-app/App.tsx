@@ -17,6 +17,7 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { AuthProvider, useAuth } from './src/context/AuthContext'
 import { DriverProvider } from './src/context/DriverContext'
 import { JobsProvider } from './src/context/JobsContext'
+import { NotificationsProvider } from './src/context/NotificationsContext'
 import { colors } from './src/theme'
 import AppText from './src/components/AppText'
 
@@ -123,15 +124,17 @@ function AppGate() {
   )
 
   return (
-    <DriverProvider>
-      <JobsProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaProvider>
-            <ThemedNavRoot />
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
-      </JobsProvider>
-    </DriverProvider>
+    <NotificationsProvider>
+      <DriverProvider>
+        <JobsProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+              <ThemedNavRoot />
+            </SafeAreaProvider>
+          </GestureHandlerRootView>
+        </JobsProvider>
+      </DriverProvider>
+    </NotificationsProvider>
   )
 }
 
