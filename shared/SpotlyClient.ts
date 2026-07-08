@@ -5,9 +5,19 @@
 import { MqttClient, MqttStatus } from './MqttClient'
 import {
   merchantOrderTopic, merchantInboxWildcard, orderStatusTopic,
-  jobTopic, jobsWildcard,
+  jobTopic, jobsWildcard, ticketTopic, ticketsWildcard, merchantMenuTopic,
+  presenceTopic, dispatchResultTopic,
 } from './topics'
-import { Order, OrderStatus, OrderStatusEvent, DeliveryJob } from './types'
+import { Order, OrderStatus, OrderStatusEvent, DeliveryJob, IssuedTicket, MenuItemPublic, MerchantMenu } from './types'
+import { getApiUrl } from './config'
+
+export interface EarningsSummary {
+  driverId: string
+  deliveries: number
+  allAssigned: number
+  grossEarnings: number
+  recentDeliveries: Order[]
+}
 
 export type { MqttStatus }
 
@@ -91,6 +101,20 @@ export class SpotlyClient {
     this.mqtt.publish(jobTopic(job.ref), job, { retained: true })
   }
 
+  // Publish the merchant's live menu (retained) so customers see the current
+  // items, prices, and availability.
+  publishMenu(merchantId: string, items: MenuItemPublic[]) {
+    this.mqtt.publish(merchantMenuTopic(merchantId), { merchantId, items }, { retained: true })
+  }
+
+  // Customer: subscribe to a merchant's live menu.
+  watchMenu(merchantId: string, cb: (menu: MerchantMenu) => void): () => void {
+    return this.mqtt.subscribe(merchantMenuTopic(merchantId), payload => {
+      const m = safeParse<MerchantMenu>(payload)
+      if (m) cb(m)
+    })
+  }
+
   // --- Driver --------------------------------------------------------------
 
   // Watch the dispatch queue. `onJob` for each available job, `onClaimed` when
@@ -120,5 +144,86 @@ export class SpotlyClient {
   // Driver progressing the delivery (picked_up → en_route → delivered).
   advanceOrder(ref: string, status: OrderStatus, driverId?: string, driverName?: string) {
     this.setOrderStatus({ ref, status, ts: Date.now(), driverId, driverName })
+  }
+
+  // Driver: advertise availability to the dispatcher (retained).
+  setPresence(driverId: string, online: boolean, busy: boolean, name?: string) {
+    this.mqtt.publish(presenceTopic(driverId), { driverId, online, busy, name, ts: Date.now() }, { retained: true })
+  }
+
+  // Merchant: learn the dispatch outcome for an order (assigned / no driver).
+  watchDispatch(ref: string, cb: (result: { status: string; driverName?: string }) => void): () => void {
+    return this.mqtt.subscribe(dispatchResultTopic(ref), payload => {
+      const r = safeParse<{ status: string; driverName?: string }>(payload)
+      if (r) cb(r)
+    })
+  }
+
+  // --- Event tickets -------------------------------------------------------
+
+  // Customer: publish an issued ticket (retained) so a door scanner can find it.
+  issueTicket(ticket: IssuedTicket) {
+    this.mqtt.publish(ticketTopic(ticket.code), ticket, { retained: true })
+  }
+
+  // Door scanner: watch all issued/redeemed tickets (retained delivers the set
+  // on connect, then live updates).
+  watchTickets(cb: (ticket: IssuedTicket) => void): () => void {
+    return this.mqtt.subscribe(ticketsWildcard(), payload => {
+      const t = safeParse<IssuedTicket>(payload)
+      if (t) cb(t)
+    })
+  }
+
+  // Door scanner: mark a ticket redeemed (retained) so it can't be reused.
+  redeemTicket(ticket: IssuedTicket) {
+    this.mqtt.publish(ticketTopic(ticket.code), { ...ticket, status: 'redeemed', redeemedAt: Date.now() }, { retained: true })
+  }
+
+  // --- REST persistence API (Tier 1 backend) --------------------------------
+  // These methods talk to the API server (:4001) which writes every MQTT event
+  // to SQLite. Call them on app mount to restore state that survived a restart.
+  // All methods resolve to an empty/null result if the API is unreachable so
+  // screens degrade gracefully to MQTT-only mode.
+
+  async getOrderHistory(merchantId: string): Promise<Order[]> {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/orders?merchantId=${encodeURIComponent(merchantId)}`)
+      if (!res.ok) return []
+      return res.json()
+    } catch { return [] }
+  }
+
+  async getDeliveryHistory(driverId: string): Promise<Order[]> {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/orders?driverId=${encodeURIComponent(driverId)}`)
+      if (!res.ok) return []
+      return res.json()
+    } catch { return [] }
+  }
+
+  async getEarnings(driverId: string): Promise<EarningsSummary | null> {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/drivers/${encodeURIComponent(driverId)}/earnings`)
+      if (!res.ok) return null
+      return res.json()
+    } catch { return null }
+  }
+
+  async getPersistedMenu(merchantId: string): Promise<MenuItemPublic[]> {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/merchants/${encodeURIComponent(merchantId)}/menu`)
+      if (!res.ok) return []
+      const body = await res.json() as MerchantMenu
+      return body.items ?? []
+    } catch { return [] }
+  }
+
+  async getOrder(ref: string): Promise<Order | null> {
+    try {
+      const res = await fetch(`${getApiUrl()}/api/orders/${encodeURIComponent(ref)}`)
+      if (!res.ok) return null
+      return res.json()
+    } catch { return null }
   }
 }

@@ -140,11 +140,11 @@ export default function HomeScreen() {
               </View>
               <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 6, textAlign: 'center' }}>Payouts</AppText>
             </Tappable>
-            <Tappable onPress={() => {}} style={[styles.quickCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Tappable onPress={() => nav.navigate('ScanTickets')} style={[styles.quickCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={[styles.quickIcon, { backgroundColor: colors.amberPale }]}>
-                <Ionicons name="megaphone" size={20} color={colors.amber} />
+                <Ionicons name="scan" size={20} color={colors.amber} />
               </View>
-              <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 6, textAlign: 'center' }}>Promote</AppText>
+              <AppText variant="caption" style={{ color: colors.textSecondary, marginTop: 6, textAlign: 'center' }}>Scan tickets</AppText>
             </Tappable>
           </Animated.View>
 

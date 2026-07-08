@@ -11,8 +11,10 @@
   "dependencies": {
     "aedes": "^0.51.3",
     "aedes-server-factory": "^0.2.1",
+    "better-sqlite3": "^11.10.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
     "mqtt": "^5.10.1"
   }
 }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { orderBus } from '../services/orderBus'
-import { OrderStatus } from '@spotly/shared'
+import { notify } from '../services/notify'
+import { OrderStatus, SpotlyClient } from '@spotly/shared'
 
 // The customer's current in-progress order — the "live activity" that powers
 // the Home banner and lets tracking survive navigation. Populated at checkout,
@@ -20,10 +21,14 @@ export interface ActiveOrder {
 interface ActiveOrderContextType {
   activeOrder: ActiveOrder | null
   startTracking: (order: Omit<ActiveOrder, 'status'> & { status?: OrderStatus }) => void
+  restoreOrder: (ref: string, partial: Omit<ActiveOrder, 'status' | 'ref'>) => Promise<void>
   clearActiveOrder: () => void
 }
 
 const ActiveOrderContext = createContext<ActiveOrderContextType | null>(null)
+
+// Lightweight REST client to look up a single order by ref (no MQTT needed).
+const apiClient = new SpotlyClient('customer')
 
 export function ActiveOrderProvider({ children }: { children: ReactNode }) {
   const [activeOrder, setActiveOrder] = useState<ActiveOrder | null>(null)
@@ -34,9 +39,15 @@ export function ActiveOrderProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ref) return
     const off = orderBus.trackOrder(ref, evt => {
-      setActiveOrder(prev => (prev && prev.ref === evt.ref)
-        ? { ...prev, status: evt.status, driverName: evt.driverName ?? prev.driverName }
-        : prev)
+      setActiveOrder(prev => {
+        if (!prev || prev.ref !== evt.ref) return prev
+        // Notify on a genuine status change (skip the initial 'placed' echo).
+        if (evt.status !== prev.status && evt.status !== 'placed') {
+          const c = STATUS_COPY[evt.status]
+          notify(`Order ${evt.ref} · ${c.label}`, evt.driverName ? `${evt.driverName} · ${c.sub}` : c.sub)
+        }
+        return { ...prev, status: evt.status, driverName: evt.driverName ?? prev.driverName }
+      })
     })
     offRef.current = off
     return () => { off(); offRef.current = null }
@@ -46,13 +57,22 @@ export function ActiveOrderProvider({ children }: { children: ReactNode }) {
     setActiveOrder({ status: 'placed', ...order })
   }
 
+  // Restore an in-flight order after an app restart — look it up by ref in the
+  // persistent API so the customer doesn't lose their tracking screen.
+  const restoreOrder = async (ref: string, partial: Omit<ActiveOrder, 'status' | 'ref'>) => {
+    const persisted = await apiClient.getOrder(ref)
+    const status = (persisted?.status ?? 'placed') as OrderStatus
+    if (status === 'delivered' || status === 'cancelled' || status === 'declined') return
+    setActiveOrder({ ref, status, ...partial })
+  }
+
   const clearActiveOrder = () => {
     if (offRef.current) { offRef.current(); offRef.current = null }
     setActiveOrder(null)
   }
 
   return (
-    <ActiveOrderContext.Provider value={{ activeOrder, startTracking, clearActiveOrder }}>
+    <ActiveOrderContext.Provider value={{ activeOrder, startTracking, restoreOrder, clearActiveOrder }}>
       {children}
     </ActiveOrderContext.Provider>
   )

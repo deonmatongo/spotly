@@ -11,6 +11,7 @@ import OrderDetailScreen from '../screens/OrderDetailScreen'
 import AddItemScreen from '../screens/AddItemScreen'
 import NotificationsScreen from '../screens/NotificationsScreen'
 import PayoutsScreen from '../screens/PayoutsScreen'
+import ScanTicketsScreen from '../screens/ScanTicketsScreen'
 import CustomTabBar from '../components/CustomTabBar'
 
 export type RootStackParamList = {
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   AddItem: undefined
   Notifications: undefined
   Payouts: undefined
+  ScanTickets: undefined
 }
 
 export type TabParamList = {
@@ -55,6 +57,7 @@ export default function RootNavigator() {
       <Stack.Screen name="AddItem" component={AddItemScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Payouts" component={PayoutsScreen} options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="ScanTickets" component={ScanTicketsScreen} options={{ animation: 'slide_from_bottom' }} />
     </Stack.Navigator>
   )
 }

@@ -108,6 +108,42 @@ export interface DeliveryJob {
   dispatchedAt: number        // epoch ms
 }
 
+// A menu item as published by the merchant for customers to browse/order.
+export interface MenuItemPublic {
+  id: string
+  name: string
+  category: string
+  price: number
+  description: string
+  available: boolean
+}
+
+export interface MerchantMenu {
+  merchantId: string
+  items: MenuItemPublic[]
+}
+
+// An event ticket as it travels on the bus: issued by the customer at
+// checkout (status 'valid'), redeemed by a door scanner (status 'redeemed').
+export interface IssuedTicket {
+  code: string            // the confirmation code encoded in the QR
+  eventName: string
+  tierName?: string
+  quantity: number
+  holder: string
+  status: 'valid' | 'redeemed'
+  issuedAt: number
+  redeemedAt?: number
+}
+
+// Authenticated user returned by the auth API.
+export interface SpotlyUser {
+  id: string
+  phone: string
+  name: string
+  role: 'customer' | 'merchant' | 'driver'
+}
+
 // Live GPS fix — the existing tracking contract (driver publishes,
 // bridge re-scopes to trips/{ref}/location, customer subscribes). Re-exported
 // here so all three apps agree on the shape.

@@ -4,6 +4,7 @@ import {
   SpotlyClient, Order, DeliveryJob, canonicalToMerchant, merchantToCanonical,
   DEMO_MERCHANT_ID, DEMO_MERCHANT_NAME, MERCHANT_COORD, FALLBACK_DROPOFF, MqttStatus,
 } from '@spotly/shared'
+import { notify } from '../services/notify'
 
 // The merchant UI speaks new/preparing/ready/done/declined; canonicalToMerchant
 // and merchantToCanonical (from @spotly/shared) bridge to the bus vocabulary.
@@ -94,6 +95,19 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     const offStatus = spotly.onStatus(setConnection)
     const readyTimer = setTimeout(() => { alertsReady.current = true }, 1800)
 
+    // Restore persisted order history from the REST API (survives broker restarts).
+    spotly.getOrderHistory(DEMO_MERCHANT_ID).then(apiOrders => {
+      if (!apiOrders.length) return
+      setOrders(prev => {
+        const existingRefs = new Set(prev.map(o => o.ref))
+        const restored = apiOrders
+          .filter(o => !existingRefs.has(o.ref))
+          .map(sharedOrderToMerchant)
+        return restored.length ? [...prev, ...restored] : prev
+      })
+      apiOrders.forEach(o => seenRefs.current.add(o.ref))
+    })
+
     // Live inbox: new customer orders arrive here (and retained ones on connect).
     const offInbox = spotly.watchInbox(
       DEMO_MERCHANT_ID,
@@ -104,6 +118,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         // Ring the alert only for genuinely-new orders that arrive live.
         if (isBrandNew && alertsReady.current && incoming.status === 'new') {
           setIncomingOrder(incoming)
+          notify('New order 🛎️', `${incoming.customerName} · $${incoming.total.toFixed(2)} · ${incoming.items.length} items`)
         }
         setOrders(prev => {
           const existing = prev.find(o => o.ref === incoming.ref)

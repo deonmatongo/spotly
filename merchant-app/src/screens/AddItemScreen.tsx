@@ -10,6 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated'
 import { spacing, cut } from '../theme'
 import { Palette, useTheme } from '../context/ThemeContext'
 import { MenuCategory } from '../data/mock'
+import { useMenu } from '../context/MenuContext'
 import AppText from '../components/AppText'
 import Tappable from '../components/Tappable'
 
@@ -19,6 +20,7 @@ export default function AddItemScreen() {
   const { colors } = useTheme()
   const styles = makeStyles(colors)
   const nav = useNavigation()
+  const { addItem } = useMenu()
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [description, setDescription] = useState('')
@@ -29,6 +31,7 @@ export default function AddItemScreen() {
 
   const handleSave = () => {
     if (!canSave) return
+    addItem({ name: name.trim(), price: parseFloat(price), description: description.trim(), category, available })
     nav.goBack()
   }
 

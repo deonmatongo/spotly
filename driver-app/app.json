@@ -11,7 +11,9 @@
       "bundleIdentifier": "app.spotly.driver",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Spotly Driver uses your location to match you with nearby delivery jobs and to share live tracking with customers.",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -43,7 +45,8 @@
           "locationWhenInUsePermission": "Spotly Driver uses your location to find nearby delivery jobs.",
           "isAndroidBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

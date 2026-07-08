@@ -20,11 +20,28 @@ export const merchantInboxWildcard = (merchantId: string) =>
 // latest status even if they open after it changed.
 export const orderStatusTopic = (ref: string) => `orders/${ref}/status`
 
+// --- Driver presence: driver → dispatcher ---------------------------------
+// Retained so the dispatcher knows who is online/available at any moment.
+export const presenceTopic = (driverId: string) => `drivers/${driverId}/presence`
+
+// --- Dispatch result: dispatcher → merchant/driver ------------------------
+export const dispatchResultTopic = (ref: string) => `dispatch/${ref}/result`
+
 // --- Job queue: merchant → drivers ----------------------------------------
 // One retained topic per available job. Drivers subscribe to the wildcard.
 // Cleared once a driver claims the job.
 export const jobTopic = (ref: string) => `jobs/${ref}`
 export const jobsWildcard = () => `jobs/+`
+
+// --- Merchant menu: merchant publishes → customers see it live --------------
+// Retained: the customer app gets the current menu the moment it subscribes.
+export const merchantMenuTopic = (merchantId: string) => `merchants/${merchantId}/menu`
+
+// --- Event tickets: customer issues → door scanner validates & redeems ------
+// Retained per ticket code so a scanner sees all valid tickets on connect and
+// redemptions persist (blocking re-use).
+export const ticketTopic = (code: string) => `tickets/${code}`
+export const ticketsWildcard = () => `tickets/+`
 
 // Pull the {ref} out of a jobs/{ref} or merchants/{id}/orders/{ref} topic.
 export const refFromTopic = (topic: string): string | null => {

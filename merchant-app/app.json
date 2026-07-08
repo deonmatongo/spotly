@@ -24,7 +24,14 @@
           "backgroundColor": "#0D1B2A"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Spotly Merchant uses the camera to scan and validate event tickets at the door."
+        }
+      ],
+      "expo-secure-store"
     ]
   }
 }

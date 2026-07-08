@@ -2,8 +2,8 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import * as SecureStore from 'expo-secure-store'
 import { requestOtp, verifyOtp, refreshAccessToken, logout as apiLogout, getMe, SpotlyUser } from '@spotly/shared'
 
-const KEY_ACCESS  = 'spotly_driver_access'
-const KEY_REFRESH = 'spotly_driver_refresh'
+const KEY_ACCESS  = 'spotly_customer_access'
+const KEY_REFRESH = 'spotly_customer_refresh'
 
 interface AuthContextType {
   user: SpotlyUser | null
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const handleVerifyOtp = useCallback(async (phone: string, code: string, name?: string) => {
-    const tokens = await verifyOtp(phone, code, { role: 'driver', name })
+    const tokens = await verifyOtp(phone, code, { role: 'customer', name })
     await SecureStore.setItemAsync(KEY_ACCESS, tokens.accessToken)
     await SecureStore.setItemAsync(KEY_REFRESH, tokens.refreshToken)
     setToken(tokens.accessToken)

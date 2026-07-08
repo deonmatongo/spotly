@@ -4,13 +4,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { colors, spacing, radius, shadow } from '../theme'
+import { colors, spacing, radius, shadow, fonts } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
 import { TicketTier } from '../data/mock'
 import { RootStackParamList } from '../navigation'
 import { useCart } from '../context/CartContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { useReviews } from '../context/ReviewsContext'
+import useLiveMenu from '../hooks/useLiveMenu'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'Detail'>
@@ -35,9 +36,20 @@ export default function DetailScreen() {
 
   const { addItem, updateQty: cartUpdateQty, items: cartItems } = useCart()
   const listingReviews = reviewsFor(listing.id)
+  const liveMenu = useLiveMenu(listing.id)
   const isEvent = listing.category === 'events' && !!listing.ticketTiers?.length
-  const isMenu = ['groceries', 'food'].includes(listing.category) && !!listing.menu
+  const isMenu = ['groceries', 'food'].includes(listing.category) && (!!listing.menu || !!liveMenu?.items?.length)
   const isBookable = !isEvent && !!listing.timeSlots?.length
+
+  // Prefer the merchant's live menu (real prices + availability) when present,
+  // falling back to the listing's static menu.
+  const menuItems = (liveMenu?.items?.length
+    ? liveMenu.items.map(it => ({
+        id: it.id, name: it.name, desc: it.description, price: it.price,
+        image: listing.menu?.find(m => m.id === it.id)?.image ?? listing.image,
+        available: it.available,
+      }))
+    : (listing.menu ?? []).map(m => ({ ...m, available: true })))
 
   const getCartQtyForItem = (id: string) => cartItems.find(i => i.id === id)?.qty ?? 0
   const totalCartItemsForListing = cartItems.filter(i => i.from === listing.name).reduce((s, i) => s + i.qty, 0)
@@ -270,28 +282,42 @@ export default function DetailScreen() {
         {/* ── FOOD/GROCERIES: Menu ── */}
         {isMenu && (
           <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>{listing.category === 'groceries' ? 'Available Items' : 'Menu Highlights'}</Text>
-            {listing.menu?.map(item => (
-              <View key={item.id} style={styles.menuItem}>
+            <View style={styles.menuHead}>
+              <Text style={styles.sectionTitle}>{listing.category === 'groceries' ? 'Available Items' : 'Menu Highlights'}</Text>
+              {!!liveMenu?.items?.length && (
+                <View style={styles.liveMenuPill}>
+                  <View style={styles.liveMenuDot} />
+                  <Text style={styles.liveMenuText}>Live menu</Text>
+                </View>
+              )}
+            </View>
+            {menuItems.map(item => (
+              <View key={item.id} style={[styles.menuItem, !item.available && { opacity: 0.55 }]}>
                 <Image source={{ uri: item.image }} style={styles.menuImg} />
                 <View style={styles.menuInfo}>
                   <Text style={styles.menuName}>{item.name}</Text>
                   <Text style={styles.menuDesc}>{item.desc}</Text>
-                  <Text style={styles.menuPrice}>${item.price.toFixed(2)}</Text>
+                  <Text style={styles.menuPrice}>{item.available ? `$${item.price.toFixed(2)}` : 'Sold out'}</Text>
                 </View>
-                <View style={styles.qtyControl}>
-                  {getCartQtyForItem(item.id) > 0 && (
-                    <>
-                      <Pressable onPress={() => cartUpdateQty(item.id, -1)} style={styles.menuQtyBtn}>
-                        <Ionicons name="remove" size={14} color={colors.textPrimary} />
-                      </Pressable>
-                      <Text style={styles.menuQtyNum}>{getCartQtyForItem(item.id)}</Text>
-                    </>
-                  )}
-                  <Pressable onPress={() => addItem({ id: item.id, name: item.name, price: item.price, image: item.image, from: listing.name, itemType: 'food' })} style={[styles.menuQtyBtn, styles.menuQtyBtnAdd]}>
-                    <Ionicons name="add" size={14} color={colors.white} />
-                  </Pressable>
-                </View>
+                {item.available ? (
+                  <View style={styles.qtyControl}>
+                    {getCartQtyForItem(item.id) > 0 && (
+                      <>
+                        <Pressable onPress={() => cartUpdateQty(item.id, -1)} style={styles.menuQtyBtn}>
+                          <Ionicons name="remove" size={14} color={colors.textPrimary} />
+                        </Pressable>
+                        <Text style={styles.menuQtyNum}>{getCartQtyForItem(item.id)}</Text>
+                      </>
+                    )}
+                    <Pressable onPress={() => addItem({ id: item.id, name: item.name, price: item.price, image: item.image, from: listing.name, itemType: 'food' })} style={[styles.menuQtyBtn, styles.menuQtyBtnAdd]}>
+                      <Ionicons name="add" size={14} color={colors.white} />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.soldOutTag}>
+                    <Ionicons name="close-circle-outline" size={14} color={colors.textLight} />
+                  </View>
+                )}
               </View>
             ))}
           </View>
@@ -450,7 +476,12 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   slotBtnActive: { backgroundColor: colors.primary },
   slotText: { fontSize: 13, fontWeight: '700', color: colors.primary },
   slotTextActive: { color: colors.white },
-  menuItem: { flexDirection: 'row', gap: 12, backgroundColor: colors.surfaceAlt, borderRadius: radius.lg, padding: 10, marginBottom: 10 },
+  menuHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  liveMenuPill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.primaryPale, borderRadius: 100, paddingHorizontal: 9, paddingVertical: 4 },
+  liveMenuDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+  liveMenuText: { fontFamily: fonts.bodyBold, fontSize: 9.5, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.primary },
+  soldOutTag: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  menuItem: { flexDirection: 'row', gap: 12, backgroundColor: colors.surfaceAlt, borderRadius: radius.lg, padding: 10, marginBottom: 10, alignItems: 'center' },
   menuImg: { width: 60, height: 60, borderRadius: radius.md },
   menuInfo: { flex: 1 },
   menuName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },

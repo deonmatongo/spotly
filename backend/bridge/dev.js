@@ -31,7 +31,11 @@ aedes.on('clientDisconnect', c => console.log(`[broker] client disconnected: ${c
 setTimeout(() => {
   const mqtt = require('mqtt')
   const { startBridge, startRest } = require('./server')
+  const { startDispatch } = require('./dispatch')
+  const { startApi } = require('./api')
   const client = mqtt.connect(`mqtt://localhost:${TCP_PORT}`, { reconnectPeriod: 2000 })
   startBridge(client)
   startRest()
+  startDispatch(`mqtt://localhost:${TCP_PORT}`)
+  startApi(`mqtt://localhost:${TCP_PORT}`)
 }, 300)

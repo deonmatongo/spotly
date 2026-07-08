@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spotly Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="app.css" />
+  <style>
+    /* ── Admin-specific additions ── */
+    .admin-badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--red); background: var(--red-pale); border: 1px solid rgba(239,68,68,.3); border-radius: 100px; padding: 4px 10px; margin-bottom: 14px; }
+    .portal-tag.admin-tag { color: var(--red); background: var(--red-pale); border-color: rgba(239,68,68,.3); }
+    .dash-item.active.admin-active { background: var(--red-pale); color: #F87171; }
+
+    /* Canonical order status chips */
+    .status-chip.placed    { background: var(--blue-pale); color: #60A5FA; }
+    .status-chip.accepted  { background: var(--amber-pale); color: #FBBF24; }
+    .status-chip.picked_up { background: var(--orange-pale); color: #FB923C; }
+    .status-chip.en_route  { background: var(--blue-pale); color: #60A5FA; }
+    .status-chip.delivered { background: var(--g100); color: var(--g500); }
+    .status-chip.cancelled { background: rgba(100,116,139,.16); color: var(--s500); }
+
+    /* Dispute / user status chips */
+    .status-chip.open      { background: var(--orange-pale); color: #FB923C; }
+    .status-chip.escalated { background: var(--red-pale); color: #F87171; }
+    .status-chip.resolved  { background: rgba(100,116,139,.16); color: var(--s500); }
+    .status-chip.active    { background: var(--g100); color: var(--g500); }
+    .status-chip.verified  { background: var(--blue-pale); color: #60A5FA; }
+    .status-chip.suspended { background: var(--red-pale); color: #F87171; }
+    .status-chip.valid     { background: var(--g100); color: var(--g500); }
+    .status-chip.redeemed  { background: rgba(100,116,139,.16); color: var(--s500); }
+    .status-chip.void      { background: var(--red-pale); color: #F87171; }
+
+    /* Driver online pill */
+    .driver-online { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; }
+    .driver-online .d-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--s400); }
+    .driver-online.is-on .d-dot { background: var(--g500); animation: livePulse 2s infinite; }
+    .driver-online.is-on { color: var(--g500); }
+    .driver-online.is-busy .d-dot { background: var(--amber); }
+    .driver-online.is-busy { color: var(--amber); }
+
+    /* Activity feed */
+    .activity-feed { display: flex; flex-direction: column; gap: 0; }
+    .af-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--s700); }
+    .af-item:last-child { border-bottom: none; }
+    .af-icon { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; margin-top: 1px; }
+    .af-icon.order { background: var(--blue-pale); }
+    .af-icon.driver { background: var(--g100); }
+    .af-icon.ticket { background: var(--orange-pale); }
+    .af-icon.dispute { background: var(--red-pale); }
+    .af-icon.system { background: var(--s100); }
+    .af-text { flex: 1; line-height: 1.5; }
+    .af-time { font-size: 11px; color: var(--s400); white-space: nowrap; }
+
+    /* Health stats grid */
+    .health-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+    .health-stat { background: var(--surface-alt); border-radius: 12px; padding: 14px; text-align: center; }
+    .health-stat-val { font-family: var(--font-head); font-size: 24px; font-weight: 700; color: var(--s900); }
+    .health-stat-lbl { font-size: 11px; color: var(--s500); margin-top: 4px; }
+    .health-ok  { background: var(--g100); }
+    .health-ok .health-stat-val { color: var(--g500); }
+    .health-err { background: var(--red-pale); }
+    .health-err .health-stat-val { color: #F87171; }
+
+    /* Config display */
+    .config-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .config-row:last-child { border-bottom: none; }
+    .config-key { color: var(--s500); font-weight: 500; }
+    .config-val { color: var(--s900); font-weight: 600; font-family: monospace; }
+
+    /* Force-status select */
+    .admin-select { background: var(--surface-alt); border: 1.5px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 12px; font-weight: 600; color: var(--s700); font-family: var(--font); cursor: pointer; }
+    .admin-select:focus { outline: none; border-color: var(--g800); }
+
+    /* Dispute card */
+    .dispute-type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--s500); margin-bottom: 4px; }
+
+    /* User role chip */
+    .role-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 6px; text-transform: capitalize; }
+    .role-chip.customer { background: var(--blue-pale); color: #60A5FA; }
+    .role-chip.merchant { background: var(--amber-pale); color: #FBBF24; }
+    .role-chip.driver   { background: var(--g100); color: var(--g500); }
+
+    /* Filter pills row */
+    .filter-pills { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+    .filter-pill { font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 100px; border: 1.5px solid var(--border); background: var(--surface); color: var(--s500); cursor: pointer; transition: all .15s; }
+    .filter-pill:hover { border-color: var(--g800); color: var(--g800); }
+    .filter-pill.active { background: var(--g800); border-color: var(--g800); color: #fff; }
+
+    /* Red action button */
+    .dbtn-red { background: var(--red-pale); color: var(--red); border: 1px solid rgba(239,68,68,.3); }
+    .dbtn-red:hover { background: rgba(239,68,68,.25); }
+
+    /* Overview two-col */
+    .admin-grid-2 { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; }
+    @media (max-width: 1100px) { .admin-grid-2 { grid-template-columns: 1fr; } }
+    @media (max-width: 900px)  { .kpi-row { grid-template-columns: 1fr 1fr; } .health-grid { grid-template-columns: 1fr 1fr; } }
+
+    /* Login right panel — admin themed */
+    .admin-login-right { background: var(--d900); background-image: radial-gradient(ellipse 80% 80% at 50% 50%, rgba(239,68,68,.15) 0%, transparent 70%); display: flex; align-items: center; justify-content: center; padding: 48px; }
+    .alr-inner { text-align: center; }
+    .alr-shield { width: 72px; height: 72px; background: var(--red-pale); border-radius: 20px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(239,68,68,.3); }
+    .alr-title { font-family: var(--font-head); font-size: 22px; font-weight: 700; color: var(--white); margin-bottom: 10px; letter-spacing: -.4px; }
+    .alr-desc { font-size: 13px; color: rgba(255,255,255,.5); line-height: 1.7; max-width: 260px; }
+    .alr-access { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; }
+    .alr-pill { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 100px; padding: 8px 14px; font-size: 12px; color: rgba(255,255,255,.6); }
+    .alr-pill svg { flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ ADMIN LOGIN ═══════════ -->
+<div id="view-admin-login" class="view">
+  <div class="login-page">
+    <div class="login-left">
+      <div class="ll-inner">
+        <a href="index.html" class="logo-link">
+          <div class="app-logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#fff"/></svg></div>
+          <span>spotly</span>
+        </a>
+        <div class="admin-badge">Admin portal</div>
+        <h1 style="font-size:30px;font-weight:800;letter-spacing:-.7px;margin-bottom:10px;">Ops console.</h1>
+        <p style="font-size:15px;color:var(--s500);margin-bottom:36px;line-height:1.6;">Monitor orders, manage drivers, resolve disputes and track platform health.</p>
+        <form id="adminLoginForm" class="login-form" novalidate>
+          <div class="field">
+            <label>Email address</label>
+            <div class="input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <input type="email" id="adminEmail" placeholder="admin@spotly.app" autocomplete="email" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <div class="input-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              <input type="password" id="adminPwd" placeholder="••••••••" autocomplete="current-password" />
+              <button type="button" class="eye-btn" id="adminEyeBtn" tabindex="-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="adminLoginError" class="login-error" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Invalid credentials.
+          </div>
+          <button type="submit" class="btn-login" style="background:var(--red);box-shadow:0 2px 12px rgba(239,68,68,.3);">
+            <span class="btn-label">Sign in to Admin</span>
+            <svg class="btn-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+          <div class="login-hint">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            <span>Demo: <strong>admin@spotly.app</strong> / <strong>spotlyops</strong></span>
+          </div>
+        </form>
+        <p style="margin-top:20px;font-size:13px;color:var(--s500);">← <a href="app.html" style="color:var(--s500);text-decoration:none;font-weight:600;">Back to partner portals</a></p>
+      </div>
+    </div>
+    <div class="admin-login-right">
+      <div class="alr-inner">
+        <div class="alr-shield">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="alr-title">Spotly Ops Console</div>
+        <div class="alr-desc">Full visibility across all orders, drivers, merchants, and platform health — in real time.</div>
+        <div class="alr-access">
+          <div class="alr-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>Live MQTT event stream</div>
+          <div class="alr-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Force-advance orders &amp; assign drivers</div>
+          <div class="alr-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FB923C" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Dispute resolution &amp; refunds</div>
+          <div class="alr-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Bridge health &amp; broker status</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ADMIN DASHBOARD ═══════════ -->
+<div id="view-admin" class="view" hidden></div>
+
+<script src="vendor/paho-mqtt-min.js"></script>
+<script src="spotly-bus.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

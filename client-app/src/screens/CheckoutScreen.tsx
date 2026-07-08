@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Image, Modal } from 'react-native'
+import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Image, Modal, Alert, ActivityIndicator } from 'react-native'
 
 const PAYMENT_METHODS = [
   { id: 'visa',       logo: 'VISA',     bg: '#1A1F71', fg: '#FFFFFF', label: 'Visa •••• 4242',          sub: 'Expires 08/27' },
@@ -24,6 +24,7 @@ import { orderBus } from '../services/orderBus'
 import { useActiveOrder } from '../context/ActiveOrderContext'
 import {
   Order, DEMO_MERCHANT_ID, DEMO_MERCHANT_NAME, MERCHANT_COORD, FALLBACK_DROPOFF,
+  chargeOrder, PaymentMethod,
 } from '@spotly/shared'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -59,6 +60,7 @@ export default function CheckoutScreen() {
   const [editAddr, setEditAddr] = useState(false)
   const [draftAddr, setDraftAddr] = useState('')
   const [draftNote, setDraftNote] = useState('')
+  const [charging, setCharging] = useState(false)
 
   const openEditAddr = () => { setDraftAddr(address); setDraftNote(addressNote); setEditAddr(true) }
   const saveAddr = () => {
@@ -83,8 +85,24 @@ export default function CheckoutScreen() {
   const ticketItems = items.filter(i => i.itemType === 'ticket')
   const foodItems = items.filter(i => i.itemType === 'food')
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (charging) return
+    setCharging(true)
+
+    const methodMap: Record<string, PaymentMethod> = {
+      visa: 'card', mastercard: 'card', apple: 'card', ecocash: 'ecocash', points: 'points',
+    }
+    const apiMethod = methodMap[payMethod] ?? 'card'
     const orderNum = `SPT-${Math.floor(1000 + Math.random() * 9000)}`
+
+    try {
+      await chargeOrder(orderNum, finalTotal, apiMethod, apiMethod === 'ecocash' ? (currentUser as any).phone : undefined)
+    } catch (err: any) {
+      Alert.alert('Payment failed', err.message ?? 'Could not process payment. Please try again.')
+      setCharging(false)
+      return
+    }
+
     const now = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 
     if (hasTickets) {
@@ -119,6 +137,16 @@ export default function CheckoutScreen() {
     clearCart()
 
     if (hasTickets && foodItems.length === 0) {
+      // Issue the ticket onto the bus so a door scanner can validate + redeem it.
+      orderBus.issueTicket({
+        code: orderNum,
+        eventName: ticketItems[0]?.from ?? 'Event',
+        tierName: ticketItems[0]?.eventMeta?.tierName,
+        quantity: itemCount,
+        holder: currentUser.name,
+        status: 'valid',
+        issuedAt: Date.now(),
+      })
       addNotification({
         type: 'ticket',
         title: 'Tickets confirmed 🎟️',
@@ -340,8 +368,11 @@ export default function CheckoutScreen() {
       </KeyboardAvoidingView>
 
       <View style={[styles.ctaWrap, { paddingBottom: Math.max(insets.bottom + 12, 20) }]}>
-        <Pressable onPress={handlePlaceOrder} style={styles.cta}>
-          <Text style={styles.ctaText}>{hasTickets ? 'Buy Tickets' : 'Place Order'} · ${finalTotal.toFixed(2)}</Text>
+        <Pressable onPress={handlePlaceOrder} disabled={charging} style={[styles.cta, charging && { opacity: 0.7 }]}>
+          {charging
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.ctaText}>{hasTickets ? 'Buy Tickets' : 'Place Order'} · ${finalTotal.toFixed(2)}</Text>
+          }
         </Pressable>
       </View>
 

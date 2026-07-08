@@ -34,7 +34,8 @@
         {
           "calendarPermission": "Spotly saves your event tickets to your calendar."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

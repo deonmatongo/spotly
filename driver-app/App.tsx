@@ -14,7 +14,7 @@ import { Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700
 import RootNavigator from './src/navigation'
 import LoginScreen from './src/screens/LoginScreen'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
-import { AuthProvider } from './src/context/AuthContext'
+import { AuthProvider, useAuth } from './src/context/AuthContext'
 import { DriverProvider } from './src/context/DriverContext'
 import { JobsProvider } from './src/context/JobsContext'
 import { colors } from './src/theme'
@@ -107,10 +107,35 @@ function SplashScreen({ onDone }: { onDone: () => void }) {
   )
 }
 
-export default function App() {
+function AppGate() {
+  const { user, isLoading } = useAuth()
   const [ready, setReady] = useState(false)
-  const [loggedIn, setLoggedIn] = useState(false)
 
+  if (!ready) return <SplashScreen onDone={() => setReady(true)} />
+  if (isLoading) return <View style={{ flex: 1, backgroundColor: '#0B1622' }} />
+  if (!user) return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <LoginScreen />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  )
+
+  return (
+    <DriverProvider>
+      <JobsProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider>
+            <ThemedNavRoot />
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </JobsProvider>
+    </DriverProvider>
+  )
+}
+
+export default function App() {
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_700Bold,
     SpaceGrotesk_600SemiBold,
@@ -123,30 +148,11 @@ export default function App() {
 
   if (!fontsLoaded) return null
 
-  if (!ready) return <ErrorBoundary><SplashScreen onDone={() => setReady(true)} /></ErrorBoundary>
-
-  if (!loggedIn) return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <LoginScreen onLogin={() => setLoggedIn(true)} />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
-  )
-
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AuthProvider logout={() => setLoggedIn(false)}>
-          <DriverProvider>
-            <JobsProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <SafeAreaProvider>
-                  <ThemedNavRoot />
-                </SafeAreaProvider>
-              </GestureHandlerRootView>
-            </JobsProvider>
-          </DriverProvider>
+        <AuthProvider>
+          <AppGate />
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

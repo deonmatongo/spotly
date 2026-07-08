@@ -25,6 +25,7 @@ import { BookingsProvider } from './src/context/BookingsContext'
 import { NotificationsProvider } from './src/context/NotificationsContext'
 import { ReviewsProvider } from './src/context/ReviewsContext'
 import { ActiveOrderProvider } from './src/context/ActiveOrderContext'
+import { AuthProvider, useAuth } from './src/context/AuthContext'
 import { colors, fonts } from './src/theme'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 
@@ -104,10 +105,45 @@ function SplashScreen({ onDone }: { onDone: () => void }) {
   )
 }
 
-export default function App() {
+function AppGate() {
+  const { user, isLoading } = useAuth()
   const [ready, setReady] = useState(false)
-  const [loggedIn, setLoggedIn] = useState(false)
 
+  if (!ready) return <SplashScreen onDone={() => setReady(true)} />
+  if (isLoading) return <View style={{ flex: 1, backgroundColor: '#0D1B2A' }} />
+  if (!user) return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <OnboardingScreen onLogin={() => {}} />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  )
+
+  return (
+    <NotificationsProvider>
+      <FavoritesProvider>
+        <BookingsProvider>
+          <ReviewsProvider>
+            <TicketsProvider>
+              <CartProvider>
+                <ActiveOrderProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <SafeAreaProvider>
+                      <ThemedNavRoot />
+                    </SafeAreaProvider>
+                  </GestureHandlerRootView>
+                </ActiveOrderProvider>
+              </CartProvider>
+            </TicketsProvider>
+          </ReviewsProvider>
+        </BookingsProvider>
+      </FavoritesProvider>
+    </NotificationsProvider>
+  )
+}
+
+export default function App() {
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_700Bold,
     SpaceGrotesk_600SemiBold,
@@ -120,39 +156,12 @@ export default function App() {
 
   if (!fontsLoaded) return null
 
-  if (!ready) return <ErrorBoundary><SplashScreen onDone={() => setReady(true)} /></ErrorBoundary>
-
-  if (!loggedIn) return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <OnboardingScreen onLogin={() => setLoggedIn(true)} />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
-  )
-
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <NotificationsProvider>
-          <FavoritesProvider>
-            <BookingsProvider>
-              <ReviewsProvider>
-                <TicketsProvider>
-                  <CartProvider>
-                    <ActiveOrderProvider>
-                      <GestureHandlerRootView style={{ flex: 1 }}>
-                        <SafeAreaProvider>
-                          <ThemedNavRoot />
-                        </SafeAreaProvider>
-                      </GestureHandlerRootView>
-                    </ActiveOrderProvider>
-                  </CartProvider>
-                </TicketsProvider>
-              </ReviewsProvider>
-            </BookingsProvider>
-          </FavoritesProvider>
-        </NotificationsProvider>
+        <AuthProvider>
+          <AppGate />
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   )

@@ -1,5 +1,5 @@
-import React from 'react'
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native'
+import React, { useState } from 'react'
+import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
@@ -10,12 +10,29 @@ import { revenueSummary, payoutHistory } from '../data/mock'
 import AppText from '../components/AppText'
 import Tappable from '../components/Tappable'
 import useCountUp from '../hooks/useCountUp'
+import { useAuth } from '../context/AuthContext'
+import { requestPayout } from '@spotly/shared'
 
 export default function PayoutsScreen() {
   const { colors } = useTheme()
   const styles = makeStyles(colors)
   const nav = useNavigation()
+  const { user } = useAuth()
+  const [requesting, setRequesting] = useState(false)
   const pending = useCountUp(revenueSummary.pendingPayout, 700)
+
+  const handleRequestPayout = async () => {
+    if (requesting || !user) return
+    setRequesting(true)
+    try {
+      await requestPayout(user.id, revenueSummary.pendingPayout, 'ecocash', user.phone)
+      Alert.alert('Payout requested', 'Your early payout is being processed.')
+    } catch (err: any) {
+      Alert.alert('Request failed', err.message ?? 'Could not request payout. Try again.')
+    } finally {
+      setRequesting(false)
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -36,9 +53,11 @@ export default function PayoutsScreen() {
           <AppText variant="caption" style={{ color: 'rgba(255,255,255,0.75)' }}>
             Auto-payout on {revenueSummary.nextPayoutDate} · Platform fee {(revenueSummary.platformFeeRate * 100).toFixed(0)}%
           </AppText>
-          <Tappable onPress={() => {}} style={styles.cashOutBtn}>
+          <Tappable onPress={handleRequestPayout} disabled={requesting} style={[styles.cashOutBtn, requesting && { opacity: 0.6 }]}>
             <Ionicons name="flash" size={14} color={colors.primary} />
-            <AppText variant="bodyBold" style={{ color: colors.primary, fontSize: 14 }}>Request early payout</AppText>
+            <AppText variant="bodyBold" style={{ color: colors.primary, fontSize: 14 }}>
+              {requesting ? 'Requesting…' : 'Request early payout'}
+            </AppText>
           </Tappable>
         </Animated.View>
 

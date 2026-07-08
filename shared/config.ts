@@ -8,19 +8,23 @@
 let brokerHost = 'localhost'
 let brokerPort = 9001          // MQTT over WebSocket (paho in RN)
 let bridgeUrl = 'http://localhost:4000'
+let apiUrl    = 'http://localhost:4001'  // REST persistence API
 
-export function configureBroker(opts: { host?: string; port?: number; bridgeUrl?: string }) {
+export function configureBroker(opts: { host?: string; port?: number; bridgeUrl?: string; apiUrl?: string }) {
   if (opts.host) {
     brokerHost = opts.host
-    bridgeUrl = `http://${opts.host}:4000`
+    bridgeUrl  = `http://${opts.host}:4000`
+    apiUrl     = `http://${opts.host}:4001`
   }
-  if (opts.port) brokerPort = opts.port
-  if (opts.bridgeUrl) bridgeUrl = opts.bridgeUrl
+  if (opts.port)      brokerPort = opts.port
+  if (opts.bridgeUrl) bridgeUrl  = opts.bridgeUrl
+  if (opts.apiUrl)    apiUrl     = opts.apiUrl
 }
 
 export const getBrokerHost = () => brokerHost
 export const getBrokerPort = () => brokerPort
-export const getBridgeUrl = () => bridgeUrl
+export const getBridgeUrl  = () => bridgeUrl
+export const getApiUrl     = () => apiUrl
 
 // The single demo merchant. The customer app's prototype pickup point is
 // already hard-wired to Amanzi Restaurant, so the whole demo flows through it.

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { availableJobs as initialJobs, offerPool, DeliveryJob, JobStatus, JobType } from '../data/mock'
 import { locationTracker } from '../services/locationTracker'
+import { notify } from '../services/notify'
+import { useDriver } from './DriverContext'
 import {
   SpotlyClient, DeliveryJob as BusJob, OrderStatus as CanonicalStatus,
   DEMO_DRIVER_ID, DEMO_DRIVER_NAME, MERCHANT_COORD, FALLBACK_DROPOFF, MqttStatus,
@@ -77,6 +79,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   const [usedOfferIds, setUsedOfferIds] = useState<string[]>([])
   const [connection, setConnection] = useState<MqttStatus>('offline')
   const clientRef = useRef<SpotlyClient | null>(null)
+  const { isOnline } = useDriver()
 
   // Refs that are no longer available to pick up (claimed by us, completed, or
   // active) — used to filter incoming dispatches.
@@ -91,10 +94,43 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     const spotly = new SpotlyClient('driver')
     clientRef.current = spotly
     const offStatus = spotly.onStatus(setConnection)
+
+    // Restore completed delivery history + earnings from the REST API.
+    spotly.getDeliveryHistory(DEMO_DRIVER_ID).then(apiOrders => {
+      if (!apiOrders.length) return
+      const delivered = apiOrders.filter(o => o.status === 'delivered')
+      setCompletedJobs(prev => {
+        const existingRefs = new Set(prev.map(j => j.ref))
+        const restored = delivered
+          .filter(o => !existingRefs.has(o.ref))
+          .map(o => busJobToLocal({
+            ref:          o.ref,
+            merchantId:   o.merchantId,
+            vendorName:   o.merchantName,
+            pickup:       '',
+            dropoff:      o.address,
+            customerName: o.customerName,
+            customerPhone:o.customerPhone ?? '',
+            itemsSummary: (o.items ?? []).map(i => `${i.qty}× ${i.name}`).join(', '),
+            distance:     '—',
+            estMinutes:   o.prepMinutes ?? 20,
+            payout:       Number((3.5 + (o.deliveryFee || 0)).toFixed(2)),
+            tip:          0,
+            dispatchedAt: o.placedAt,
+          }))
+        return restored.length ? [...restored, ...prev] : prev
+      })
+      delivered.forEach(o => claimedRefs.current.add(o.ref))
+    })
+
     const offJobs = spotly.watchJobs(
       (job) => {
         if (claimedRefs.current.has(job.ref) || activeRef.current === job.ref) return
-        setAvailableJobs(prev => prev.some(j => j.ref === job.ref) ? prev : [busJobToLocal(job), ...prev])
+        setAvailableJobs(prev => {
+          if (prev.some(j => j.ref === job.ref)) return prev
+          notify('New delivery offer 🛵', `${job.vendorName} · $${(job.payout + (job.tip || 0)).toFixed(2)} · ${job.distance}`)
+          return [busJobToLocal(job), ...prev]
+        })
       },
       (ref) => {
         // Cleared from the queue (claimed by some driver) — drop it unless it's
@@ -106,6 +142,12 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     spotly.connect()
     return () => { offStatus(); offJobs(); spotly.disconnect() }
   }, [])
+
+  // Advertise presence to the dispatcher: online (from the power toggle) and
+  // busy (mid-delivery). Retained, so the engine always knows availability.
+  useEffect(() => {
+    clientRef.current?.setPresence(DEMO_DRIVER_ID, isOnline, !!activeJob, DEMO_DRIVER_NAME)
+  }, [isOnline, activeJob])
 
   // Live tracking: start broadcasting when a job becomes active, stop when it ends.
   // Track the last started ref so status advances don't restart the tracker.

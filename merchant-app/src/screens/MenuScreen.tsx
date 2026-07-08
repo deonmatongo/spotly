@@ -7,7 +7,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import { spacing, cut } from '../theme'
 import { Palette, useTheme } from '../context/ThemeContext'
-import { menuItems as initialItems, MenuItem, MenuCategory } from '../data/mock'
+import { MenuItem, MenuCategory } from '../data/mock'
+import { useMenu } from '../context/MenuContext'
 import { RootStackParamList } from '../navigation'
 import MenuItemCard from '../components/MenuItemCard'
 import AppText from '../components/AppText'
@@ -21,15 +22,13 @@ export default function MenuScreen() {
   const { colors } = useTheme()
   const styles = makeStyles(colors)
   const nav = useNavigation<Nav>()
-  const [items, setItems] = useState<MenuItem[]>(initialItems)
+  const { items, toggleAvailability } = useMenu()
   const [category, setCategory] = useState<MenuCategory | 'All'>('All')
 
   const filtered = category === 'All' ? items : items.filter(i => i.category === category)
   const availableCount = items.filter(i => i.available).length
 
-  const toggleItem = (id: string, available: boolean) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, available } : i))
-  }
+  const toggleItem = (id: string) => toggleAvailability(id)
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
