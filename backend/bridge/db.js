@@ -78,6 +78,35 @@ db.exec(`
     issued_at   INTEGER DEFAULT 0,
     redeemed_at INTEGER
   );
+
+  -- Customer table/event/experience bookings.
+  CREATE TABLE IF NOT EXISTS bookings (
+    id                TEXT    PRIMARY KEY,
+    user_id           TEXT    NOT NULL,
+    listing_id        INTEGER NOT NULL DEFAULT 0,
+    listing_name      TEXT    DEFAULT '',
+    listing_image     TEXT    DEFAULT '',
+    date              TEXT    DEFAULT '',
+    time              TEXT    DEFAULT '',
+    party_size        INTEGER DEFAULT 1,
+    confirmation_code TEXT    DEFAULT '',
+    points            INTEGER DEFAULT 0,
+    status            TEXT    DEFAULT 'confirmed',
+    type              TEXT    DEFAULT '',
+    can_review        INTEGER DEFAULT 0,
+    created_at        INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_bookings_user   ON bookings(user_id);
+  CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+
+  -- Customer saved/favourite listings.
+  CREATE TABLE IF NOT EXISTS favorites (
+    user_id    TEXT    NOT NULL,
+    listing_id INTEGER NOT NULL,
+    created_at INTEGER DEFAULT 0,
+    PRIMARY KEY (user_id, listing_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
 `)
 
 // ── Prepared statements ──────────────────────────────────────────────────────
@@ -310,6 +339,23 @@ const deletePushToken  = db.prepare('DELETE FROM push_tokens WHERE user_id = ? A
 const getListing          = db.prepare('SELECT * FROM listings WHERE id = ? AND active = 1')
 const listListings        = db.prepare('SELECT * FROM listings WHERE active = 1 ORDER BY popular DESC, rating DESC')
 
+// Bookings
+const insertBooking       = db.prepare(`
+  INSERT INTO bookings (id, user_id, listing_id, listing_name, listing_image, date, time,
+    party_size, confirmation_code, points, status, type, can_review, created_at)
+  VALUES (@id, @user_id, @listing_id, @listing_name, @listing_image, @date, @time,
+    @party_size, @confirmation_code, @points, @status, @type, @can_review, @created_at)
+`)
+const getBookingsByUser   = db.prepare('SELECT * FROM bookings WHERE user_id = ? ORDER BY created_at DESC')
+const getBookingById      = db.prepare('SELECT * FROM bookings WHERE id = ?')
+const updateBookingStatus = db.prepare('UPDATE bookings SET status = ? WHERE id = ? AND user_id = ?')
+const patchBooking        = db.prepare('UPDATE bookings SET date = @date, time = @time, party_size = @party_size WHERE id = @id AND user_id = @user_id')
+
+// Favorites
+const insertFavorite      = db.prepare('INSERT OR IGNORE INTO favorites (user_id, listing_id, created_at) VALUES (?, ?, ?)')
+const deleteFavorite      = db.prepare('DELETE FROM favorites WHERE user_id = ? AND listing_id = ?')
+const getFavoritesByUser  = db.prepare('SELECT listing_id FROM favorites WHERE user_id = ? ORDER BY created_at DESC')
+
 // ── Conversion helpers ───────────────────────────────────────────────────────
 
 function rowToOrder(row) {
@@ -382,4 +428,8 @@ module.exports = {
   upsertPushToken, getPushTokens, deletePushToken,
   // listings catalog
   getListing, listListings,
+  // bookings
+  insertBooking, getBookingsByUser, getBookingById, updateBookingStatus, patchBooking,
+  // favorites
+  insertFavorite, deleteFavorite, getFavoritesByUser,
 }

@@ -1,37 +1,59 @@
-import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react'
-import { listings, Listing } from '../data/mock'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
+import { Listing } from '../data/mock'
+import { getApiUrl } from '@spotly/shared'
+import { useAuth } from './AuthContext'
+import { useListings } from './ListingsContext'
 
 interface FavoritesContextType {
   favorites: number[]
   isFavorite: (id: number) => boolean
-  toggleFavorite: (id: number) => boolean // returns new state (true = now favorited)
+  toggleFavorite: (id: number) => boolean  // returns new isFavorite state
   favoriteListings: Listing[]
   count: number
 }
 
 const FavoritesContext = createContext<FavoritesContextType | null>(null)
 
-// Seed with a couple so the wishlist isn't empty during a demo
 const SEED = [1, 10]
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
+  const { user, accessToken } = useAuth()
+  const { listings } = useListings()
   const [favorites, setFavorites] = useState<number[]>(SEED)
 
-  const isFavorite = (id: number) => favorites.includes(id)
-
-  const toggleFavorite = (id: number) => {
-    let nowFav = false
-    setFavorites(prev => {
-      if (prev.includes(id)) return prev.filter(f => f !== id)
-      nowFav = true
-      return [id, ...prev]
+  // Fetch real favorites on auth
+  useEffect(() => {
+    if (!user || !accessToken) return
+    fetch(`${getApiUrl()}/api/favorites`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
     })
-    return !favorites.includes(id)
-  }
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (Array.isArray(data)) setFavorites(data)
+      })
+      .catch(() => {/* keep seed fallback */})
+  }, [user?.id, accessToken])
+
+  const isFavorite = useCallback((id: number) => favorites.includes(id), [favorites])
+
+  const toggleFavorite = useCallback((id: number): boolean => {
+    const nowFav = !favorites.includes(id)
+    setFavorites(prev => nowFav ? [id, ...prev] : prev.filter(f => f !== id))
+
+    if (accessToken) {
+      const method = nowFav ? 'POST' : 'DELETE'
+      fetch(`${getApiUrl()}/api/favorites/${id}`, {
+        method,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }).catch(() => {})
+    }
+
+    return nowFav
+  }, [favorites, accessToken])
 
   const favoriteListings = useMemo(
     () => favorites.map(id => listings.find(l => l.id === id)).filter(Boolean) as Listing[],
-    [favorites]
+    [favorites, listings],
   )
 
   return (

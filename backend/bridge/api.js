@@ -42,6 +42,8 @@ const {
   rowToOrder, orderToRow,
   getUserByPhone, getUserById,
   getListing, listListings,
+  insertBooking, getBookingsByUser, getBookingById, updateBookingStatus, patchBooking,
+  insertFavorite, deleteFavorite, getFavoritesByUser,
 } = require('./db')
 const { seedCatalog, rowToListing } = require('./catalog')
 
@@ -426,6 +428,76 @@ function startApi(mqttUrl, opts = {}) {
       }
     }
     res.json(listing)
+  })
+
+  // ── Bookings ────────────────────────────────────────────────────────────────
+
+  const rowToBooking = r => ({
+    id: r.id, listingId: r.listing_id, listingName: r.listing_name,
+    listingImage: r.listing_image, date: r.date, time: r.time,
+    partySize: r.party_size, confirmationCode: r.confirmation_code,
+    points: r.points, status: r.status, type: r.type, canReview: !!r.can_review,
+  })
+
+  app.get('/api/bookings', requireAuth(), (req, res) => {
+    const rows = getBookingsByUser.all(req.user.sub)
+    res.json({
+      upcoming: rows.filter(r => r.status === 'confirmed').map(rowToBooking),
+      past:     rows.filter(r => r.status !== 'confirmed').map(rowToBooking),
+    })
+  })
+
+  app.post('/api/bookings', requireAuth(), (req, res) => {
+    const { listingId, listingName, listingImage, date, time, partySize, points, type } = req.body
+    const id   = `b-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const code = `SPT-${Math.floor(1000 + Math.random() * 9000)}`
+    insertBooking.run({
+      id, user_id: req.user.sub,
+      listing_id: listingId ?? 0, listing_name: listingName ?? '',
+      listing_image: listingImage ?? '', date: date ?? '', time: time ?? '',
+      party_size: partySize ?? 1, confirmation_code: code,
+      points: points ?? 0, status: 'confirmed', type: type ?? '',
+      can_review: 0, created_at: Date.now(),
+    })
+    res.status(201).json({
+      id, listingId, listingName, listingImage, date, time,
+      partySize, confirmationCode: code, points, status: 'confirmed', type, canReview: false,
+    })
+  })
+
+  app.patch('/api/bookings/:id', requireAuth(), (req, res) => {
+    const row = getBookingById.get(req.params.id)
+    if (!row || row.user_id !== req.user.sub) return res.status(404).json({ error: 'not found' })
+    const { date, time, partySize } = req.body
+    patchBooking.run({
+      date:       date       ?? row.date,
+      time:       time       ?? row.time,
+      party_size: partySize  ?? row.party_size,
+      id:         req.params.id,
+      user_id:    req.user.sub,
+    })
+    res.json(rowToBooking({ ...row, date: date ?? row.date, time: time ?? row.time, party_size: partySize ?? row.party_size }))
+  })
+
+  app.delete('/api/bookings/:id', requireAuth(), (req, res) => {
+    updateBookingStatus.run('cancelled', req.params.id, req.user.sub)
+    res.status(204).end()
+  })
+
+  // ── Favorites ───────────────────────────────────────────────────────────────
+
+  app.get('/api/favorites', requireAuth(), (req, res) => {
+    res.json(getFavoritesByUser.all(req.user.sub).map(r => r.listing_id))
+  })
+
+  app.post('/api/favorites/:listingId', requireAuth(), (req, res) => {
+    insertFavorite.run(req.user.sub, Number(req.params.listingId), Date.now())
+    res.status(201).end()
+  })
+
+  app.delete('/api/favorites/:listingId', requireAuth(), (req, res) => {
+    deleteFavorite.run(req.user.sub, Number(req.params.listingId))
+    res.status(204).end()
   })
 
   app.listen(API_PORT, () => {

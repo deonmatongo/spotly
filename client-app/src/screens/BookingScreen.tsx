@@ -33,8 +33,8 @@ export default function BookingScreen() {
   const { addNotification } = useNotifications()
   const isExperience = listing.category === 'experiences'
 
-  const handleConfirm = () => {
-    const booking = addBooking({
+  const handleConfirm = async () => {
+    const booking = await addBooking({
       listingId: listing.id,
       listingName: listing.name,
       listingImage: listing.image,
