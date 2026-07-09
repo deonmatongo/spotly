@@ -8,7 +8,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { colors, spacing, radius, shadow } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
 import { RootStackParamList } from '../navigation'
-import { offers, Offer } from '../data/mock'
+import { Offer } from '../data/mock'
+import { useOffers } from '../context/OffersContext'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -17,6 +18,7 @@ export default function OffersScreen() {
   const styles = makeStyles(colors)
   const nav = useNavigation<Nav>()
   const insets = useSafeAreaInsets()
+  const { offers } = useOffers()
   const [copied, setCopied] = useState<string | null>(null)
 
   const copyCode = (o: Offer) => {

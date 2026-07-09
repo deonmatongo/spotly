@@ -107,6 +107,35 @@ db.exec(`
     PRIMARY KEY (user_id, listing_id)
   );
   CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
+
+  -- In-app notifications per user.
+  CREATE TABLE IF NOT EXISTS notifications (
+    id         TEXT    PRIMARY KEY,
+    user_id    TEXT    NOT NULL,
+    type       TEXT    DEFAULT 'system',
+    title      TEXT    DEFAULT '',
+    body       TEXT    DEFAULT '',
+    read       INTEGER DEFAULT 0,
+    created_at INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_notifs_user ON notifications(user_id);
+
+  -- Promo/offer catalog — seeded on startup, admin-editable later.
+  CREATE TABLE IF NOT EXISTS offers (
+    id            TEXT PRIMARY KEY,
+    code          TEXT NOT NULL UNIQUE,
+    title         TEXT DEFAULT '',
+    blurb         TEXT DEFAULT '',
+    detail        TEXT DEFAULT '',
+    category      TEXT DEFAULT 'all',
+    discount_type TEXT DEFAULT 'percent',
+    amount        REAL DEFAULT 0,
+    min_spend     REAL DEFAULT 0,
+    expires       TEXT DEFAULT '',
+    colors        TEXT DEFAULT '[]',
+    icon          TEXT DEFAULT '',
+    active        INTEGER DEFAULT 1
+  );
 `)
 
 // ── Prepared statements ──────────────────────────────────────────────────────
@@ -356,6 +385,23 @@ const insertFavorite      = db.prepare('INSERT OR IGNORE INTO favorites (user_id
 const deleteFavorite      = db.prepare('DELETE FROM favorites WHERE user_id = ? AND listing_id = ?')
 const getFavoritesByUser  = db.prepare('SELECT listing_id FROM favorites WHERE user_id = ? ORDER BY created_at DESC')
 
+// Notifications
+const insertNotification   = db.prepare(`
+  INSERT INTO notifications (id, user_id, type, title, body, read, created_at)
+  VALUES (@id, @user_id, @type, @title, @body, 0, @created_at)
+`)
+const getNotifsByUser      = db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 100')
+const markNotifRead        = db.prepare('UPDATE notifications SET read = 1 WHERE id = ? AND user_id = ?')
+const markAllNotifsRead    = db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ?')
+const deleteUserNotifs     = db.prepare('DELETE FROM notifications WHERE user_id = ?')
+
+// Offers
+const insertOffer          = db.prepare(`
+  INSERT OR IGNORE INTO offers (id, code, title, blurb, detail, category, discount_type, amount, min_spend, expires, colors, icon, active)
+  VALUES (@id, @code, @title, @blurb, @detail, @category, @discount_type, @amount, @min_spend, @expires, @colors, @icon, 1)
+`)
+const getAllOffers          = db.prepare('SELECT * FROM offers WHERE active = 1')
+
 // ── Conversion helpers ───────────────────────────────────────────────────────
 
 function rowToOrder(row) {
@@ -432,4 +478,8 @@ module.exports = {
   insertBooking, getBookingsByUser, getBookingById, updateBookingStatus, patchBooking,
   // favorites
   insertFavorite, deleteFavorite, getFavoritesByUser,
+  // notifications
+  insertNotification, getNotifsByUser, markNotifRead, markAllNotifsRead, deleteUserNotifs,
+  // offers
+  insertOffer, getAllOffers,
 }

@@ -26,6 +26,7 @@ import { NotificationsProvider } from './src/context/NotificationsContext'
 import { ReviewsProvider } from './src/context/ReviewsContext'
 import { ActiveOrderProvider } from './src/context/ActiveOrderContext'
 import { ListingsProvider } from './src/context/ListingsContext'
+import { OffersProvider } from './src/context/OffersContext'
 import { AuthProvider, useAuth } from './src/context/AuthContext'
 import { colors, fonts } from './src/theme'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext'
@@ -162,9 +163,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AuthProvider>
-          <AppGate />
-        </AuthProvider>
+        <OffersProvider>
+          <AuthProvider>
+            <AppGate />
+          </AuthProvider>
+        </OffersProvider>
       </ThemeProvider>
     </ErrorBoundary>
   )

@@ -44,8 +44,31 @@ const {
   getListing, listListings,
   insertBooking, getBookingsByUser, getBookingById, updateBookingStatus, patchBooking,
   insertFavorite, deleteFavorite, getFavoritesByUser,
+  insertNotification, getNotifsByUser, markNotifRead, markAllNotifsRead, deleteUserNotifs,
+  insertOffer, getAllOffers,
 } = require('./db')
 const { seedCatalog, rowToListing } = require('./catalog')
+
+const OFFER_SEED = [
+  { id: 'o1', code: 'FRESH20',   title: '20% off groceries',   blurb: 'First grocery delivery',         detail: '20% off your first grocery order. Max discount $15.',               category: 'groceries',   discount_type: 'percent', amount: 20, min_spend: 0,  expires: 'Ends Sun, 29 Jun', colors: JSON.stringify(['#0D1B2A','#166534']), icon: 'bag-handle' },
+  { id: 'o2', code: 'SPOTLY10',  title: '$10 off any booking', blurb: 'Restaurants & experiences',      detail: '$10 off when you spend $40 or more on dining or experiences.',      category: 'all',         discount_type: 'flat',    amount: 10, min_spend: 40, expires: 'Ends 5 Jul',       colors: JSON.stringify(['#15803D','#16A34A']), icon: 'restaurant' },
+  { id: 'o3', code: 'FREERIDE',  title: 'Free delivery',       blurb: 'No minimum spend',               detail: 'Free delivery on your next 3 food or grocery orders.',              category: 'food',        discount_type: 'shipping', amount: 0, min_spend: 0,  expires: 'Ends 12 Jul',      colors: JSON.stringify(['#1D4ED8','#2563EB']), icon: 'bicycle' },
+  { id: 'o4', code: 'LIVE15',    title: '15% off live events', blurb: 'Concerts & festivals',           detail: '15% off event tickets. Excludes VIP tiers. Max discount $25.',     category: 'events',      discount_type: 'percent', amount: 15, min_spend: 0,  expires: 'Ends 1 Aug',       colors: JSON.stringify(['#6D28D9','#7C3AED']), icon: 'ticket' },
+  { id: 'o5', code: 'WELLNESS25',title: '$25 off wellness',    blurb: 'Spa & retreats',                 detail: '$25 off any experience over $80. Treat yourself.',                  category: 'experiences', discount_type: 'flat',    amount: 25, min_spend: 80, expires: 'Ends 20 Jul',      colors: JSON.stringify(['#0E7490','#0EA5E9']), icon: 'sparkles' },
+]
+
+function seedOffers(db) {
+  try {
+    const stmt = db.prepare(`
+      INSERT OR IGNORE INTO offers (id, code, title, blurb, detail, category, discount_type, amount, min_spend, expires, colors, icon, active)
+      VALUES (@id, @code, @title, @blurb, @detail, @category, @discount_type, @amount, @min_spend, @expires, @colors, @icon, 1)
+    `)
+    db.transaction(() => OFFER_SEED.forEach(o => stmt.run(o)))()
+    console.log('[offers] seeded')
+  } catch (err) {
+    console.warn('[offers] seed error:', err.message)
+  }
+}
 
 const API_PORT = Number(process.env.API_PORT || 4001)
 
@@ -500,9 +523,53 @@ function startApi(mqttUrl, opts = {}) {
     res.status(204).end()
   })
 
+  // ── Notifications ───────────────────────────────────────────────────────────
+
+  app.get('/api/notifications', requireAuth(), (req, res) => {
+    res.json(getNotifsByUser.all(req.user.sub).map(r => ({
+      id: r.id, type: r.type, title: r.title, body: r.body,
+      read: !!r.read, createdAt: r.created_at,
+    })))
+  })
+
+  app.post('/api/notifications', requireAuth(), (req, res) => {
+    const { type, title, body } = req.body
+    const id = `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    insertNotification.run({ id, user_id: req.user.sub, type: type ?? 'system', title: title ?? '', body: body ?? '', created_at: Date.now() })
+    res.status(201).json({ id, type, title, body, read: false, createdAt: Date.now() })
+  })
+
+  // read-all must come before /:id to avoid route collision
+  app.patch('/api/notifications/read-all', requireAuth(), (req, res) => {
+    markAllNotifsRead.run(req.user.sub)
+    res.status(204).end()
+  })
+
+  app.patch('/api/notifications/:id/read', requireAuth(), (req, res) => {
+    markNotifRead.run(req.params.id, req.user.sub)
+    res.status(204).end()
+  })
+
+  app.delete('/api/notifications', requireAuth(), (req, res) => {
+    deleteUserNotifs.run(req.user.sub)
+    res.status(204).end()
+  })
+
+  // ── Offers ──────────────────────────────────────────────────────────────────
+
+  app.get('/api/offers', (req, res) => {
+    res.json(getAllOffers.all().map(r => ({
+      id: r.id, code: r.code, title: r.title, blurb: r.blurb, detail: r.detail,
+      category: r.category, discountType: r.discount_type,
+      amount: r.amount, minSpend: r.min_spend, expires: r.expires,
+      colors: JSON.parse(r.colors || '[]'), icon: r.icon,
+    })))
+  })
+
   app.listen(API_PORT, () => {
     console.log(`[api] REST on :${API_PORT} · DB: ${DB_PATH}`)
     seedCatalog(db)
+    seedOffers(db)
   })
 }
 

@@ -19,8 +19,9 @@ import { RootStackParamList } from '../navigation'
 import { useCart } from '../context/CartContext'
 import { useTickets } from '../context/TicketsContext'
 import { useNotifications } from '../context/NotificationsContext'
-import { offers, Offer } from '../data/mock'
+import { Offer } from '../data/mock'
 import { useAuth } from '../context/AuthContext'
+import { useOffers } from '../context/OffersContext'
 import { orderBus } from '../services/orderBus'
 import { useActiveOrder } from '../context/ActiveOrderContext'
 import {
@@ -51,6 +52,7 @@ export default function CheckoutScreen() {
   const { addNotification } = useNotifications()
   const { startTracking } = useActiveOrder()
   const { user } = useAuth()
+  const { offers } = useOffers()
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery')
   const [payMethod, setPayMethod] = useState('card')
   const [ticketEmail, setTicketEmail] = useState(user?.phone ?? '')
