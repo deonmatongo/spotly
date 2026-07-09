@@ -138,10 +138,11 @@ const insertEvent = db.prepare(`
   VALUES (@ref, @status, @driver_id, @driver_name, @ts)
 `)
 
-const getOrder         = db.prepare('SELECT * FROM orders WHERE ref = ?')
-const getByMerchant    = db.prepare('SELECT * FROM orders WHERE merchant_id = ? ORDER BY placed_at DESC LIMIT 500')
-const getByDriver      = db.prepare('SELECT * FROM orders WHERE driver_id = ? ORDER BY updated_at DESC LIMIT 500')
-const getEventsByRef   = db.prepare('SELECT * FROM order_events WHERE ref = ? ORDER BY ts ASC')
+const getOrder            = db.prepare('SELECT * FROM orders WHERE ref = ?')
+const getByMerchant       = db.prepare('SELECT * FROM orders WHERE merchant_id = ? ORDER BY placed_at DESC LIMIT 500')
+const getByDriver         = db.prepare('SELECT * FROM orders WHERE driver_id = ? ORDER BY updated_at DESC LIMIT 500')
+const getByCustomerPhone  = db.prepare('SELECT * FROM orders WHERE customer_phone = ? ORDER BY placed_at DESC LIMIT 200')
+const getEventsByRef      = db.prepare('SELECT * FROM order_events WHERE ref = ? ORDER BY ts ASC')
 const countOrders      = db.prepare('SELECT COUNT(*) AS n FROM orders')
 const countEvents      = db.prepare('SELECT COUNT(*) AS n FROM order_events')
 
@@ -327,7 +328,7 @@ function orderToRow(o, now) {
 module.exports = {
   db, DB_PATH,
   upsertFullOrder, upsertOrderStatus, insertEvent,
-  getOrder, getByMerchant, getByDriver, getEventsByRef,
+  getOrder, getByMerchant, getByDriver, getByCustomerPhone, getEventsByRef,
   countOrders, countEvents,
   upsertMenu, getMenu, countMenus,
   upsertTicket, getTicket, getTicketsByEvent, getAllTickets, countTickets,

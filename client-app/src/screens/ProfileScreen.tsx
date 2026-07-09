@@ -21,6 +21,7 @@ const REWARDS = [
 
 const ACCOUNT_ITEMS = [
   { icon: 'heart-outline' as const, label: 'Saved venues', nav: 'Favorites' as const },
+  { icon: 'receipt-outline' as const, label: 'Order History', nav: 'OrderHistory' as const },
   { icon: 'ticket-outline' as const, label: 'My Tickets', nav: 'MyTickets' as const },
   { icon: 'star-outline' as const, label: 'My Reviews', nav: 'Reviews' as const },
   { icon: 'pricetag-outline' as const, label: 'Offers & Promos', nav: 'Offers' as const },

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { View, ScrollView, StyleSheet, Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -9,7 +9,9 @@ import { spacing, cut } from '../theme'
 import { Palette, useTheme } from '../context/ThemeContext'
 import { useJobs } from '../context/JobsContext'
 import { useDriver } from '../context/DriverContext'
+import { useAuth } from '../context/AuthContext'
 import { weeklyEarnings, earningsSummary, earningsHistory, demandForecast, peakWindow, FareBreakdown } from '../data/mock'
+import { getApiUrl } from '@spotly/shared'
 import { RootStackParamList } from '../navigation'
 import AppText from '../components/AppText'
 import Tappable from '../components/Tappable'
@@ -39,9 +41,42 @@ export default function EarningsScreen() {
   const nav = useNavigation<Nav>()
   const { completedJobs } = useJobs()
   const { pendingPayout, cashOutsToday, cashOut } = useDriver()
+  const { user, accessToken } = useAuth()
   const maxAmount = Math.max(...weeklyEarnings.map(d => d.amount))
   const pending = useCountUp(pendingPayout, 700)
   const canCashOut = pendingPayout > 0 && cashOutsToday < earningsSummary.maxCashOutsPerDay
+
+  const [liveWeekAmount, setLiveWeekAmount] = useState(0)
+  const [liveTrips, setLiveTrips] = useState(0)
+  const [apiHistory, setApiHistory] = useState<FareBreakdown[]>([])
+
+  useEffect(() => {
+    if (!user?.id || !accessToken) return
+    fetch(`${getApiUrl()}/api/drivers/${user.id}/earnings`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        if (data.grossEarnings > 0) setLiveWeekAmount(data.grossEarnings)
+        if (data.deliveries > 0)    setLiveTrips(data.deliveries)
+        const fares: FareBreakdown[] = (data.recentDeliveries ?? []).map((o: any) => ({
+          id:          `api-${o.ref}`,
+          vendorName:  o.merchantName || 'Delivery',
+          route:       `Pickup → ${(o.address || '').split(',')[0] || 'Dropoff'}`,
+          completedAt: o.placedAt ? new Date(o.placedAt).toLocaleDateString() : 'Completed',
+          base:        Number((3.5 + (o.deliveryFee || 0)).toFixed(2)),
+          surgeAmt:    0,
+          boost:       0,
+          tip:         0,
+        }))
+        if (fares.length) setApiHistory(fares)
+      })
+      .catch(() => {/* fallback to mock */})
+  }, [user?.id, accessToken])
+
+  const weekAmount = liveWeekAmount || earningsSummary.week.amount
+  const weekTrips  = liveTrips      || earningsSummary.week.trips
 
   const sessionFares: FareBreakdown[] = completedJobs.map(j => ({
     id: j.id,
@@ -53,7 +88,10 @@ export default function EarningsScreen() {
     boost: j.boost ?? 0,
     tip: j.tip,
   }))
-  const allFares = [...sessionFares, ...earningsHistory]
+  const historyFares = apiHistory.length ? apiHistory : earningsHistory
+  const historyRefs = new Set(apiHistory.map(f => f.id))
+  const sessionFaresFiltered = sessionFares.filter(f => !historyRefs.has(`api-${f.id}`))
+  const allFares = [...sessionFaresFiltered, ...historyFares]
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -84,11 +122,11 @@ export default function EarningsScreen() {
 
         <Animated.View entering={FadeInDown.delay(70).springify().damping(16)} style={styles.statsRow}>
           <View style={styles.statCard}>
-            <AppText variant="num" style={{ color: colors.textPrimary, fontSize: 22 }}>${earningsSummary.week.amount.toFixed(2)}</AppText>
+            <AppText variant="num" style={{ color: colors.textPrimary, fontSize: 22 }}>${weekAmount.toFixed(2)}</AppText>
             <AppText variant="caption" style={{ color: colors.textMuted, marginTop: 4 }}>This week</AppText>
           </View>
           <View style={styles.statCard}>
-            <AppText variant="num" style={{ color: colors.textPrimary, fontSize: 22 }}>{earningsSummary.week.trips}</AppText>
+            <AppText variant="num" style={{ color: colors.textPrimary, fontSize: 22 }}>{weekTrips}</AppText>
             <AppText variant="caption" style={{ color: colors.textMuted, marginTop: 4 }}>Trips</AppText>
           </View>
         </Animated.View>

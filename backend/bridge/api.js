@@ -30,13 +30,13 @@ const { router: pushRouter, sendPush } = require('./push')
 const {
   DB_PATH,
   upsertFullOrder, upsertOrderStatus, insertEvent,
-  getOrder, getByMerchant, getByDriver, getEventsByRef,
+  getOrder, getByMerchant, getByDriver, getByCustomerPhone, getEventsByRef,
   countOrders, countEvents,
   upsertMenu, getMenu, countMenus,
   upsertTicket, getTicket, getTicketsByEvent, getAllTickets, countTickets,
   countPayments, countPayouts,
   rowToOrder, orderToRow,
-  getUserByPhone,
+  getUserByPhone, getUserById,
 } = require('./db')
 
 const API_PORT = Number(process.env.API_PORT || 4001)
@@ -181,6 +181,13 @@ function startApi(mqttUrl, opts = {}) {
         payouts:  countPayouts.get().n,
       },
     })
+  })
+
+  // Orders — authenticated customer's own order history
+  app.get('/api/orders/mine', requireAuth(), (req, res) => {
+    const user = getUserById.get(req.user.id)
+    if (!user?.phone) return res.json([])
+    res.json(getByCustomerPhone.all(user.phone).map(rowToOrder))
   })
 
   // Orders — list

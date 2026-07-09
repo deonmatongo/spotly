@@ -21,6 +21,7 @@ import OffersScreen from '../screens/OffersScreen'
 import SupportScreen from '../screens/SupportScreen'
 import CourierScreen from '../screens/CourierScreen'
 import ChatScreen from '../screens/ChatScreen'
+import OrderHistoryScreen from '../screens/OrderHistoryScreen'
 import CustomTabBar from '../components/CustomTabBar'
 
 export type RootStackParamList = {
@@ -38,6 +39,7 @@ export type RootStackParamList = {
   Support: undefined
   Courier: undefined
   Chat: { driverName?: string; phone?: string } | undefined
+  OrderHistory: undefined
 }
 
 export type TabParamList = {
@@ -83,6 +85,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Support" component={SupportScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Courier" component={CourierScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ animation: 'slide_from_right' }} />
     </Stack.Navigator>
   )
 }

@@ -4,6 +4,7 @@ import { locationTracker } from '../services/locationTracker'
 import { notify } from '../services/notify'
 import { useNotifications } from './NotificationsContext'
 import { useDriver } from './DriverContext'
+import { useAuth } from './AuthContext'
 import {
   SpotlyClient, DeliveryJob as BusJob, OrderStatus as CanonicalStatus,
   DEMO_DRIVER_ID, DEMO_DRIVER_NAME, MERCHANT_COORD, FALLBACK_DROPOFF, MqttStatus,
@@ -71,6 +72,9 @@ const JobsContext = createContext<JobsContextType | null>(null)
 
 export function JobsProvider({ children }: { children: ReactNode }) {
   const { addNotification } = useNotifications()
+  const { user } = useAuth()
+  const driverId   = user?.id   ?? DEMO_DRIVER_ID
+  const driverName = user?.name ?? DEMO_DRIVER_NAME
   const [availableJobs, setAvailableJobs] = useState<DeliveryJob[]>(initialJobs)
   const [activeJob, setActiveJob] = useState<DeliveryJob | null>(null)
   const [completedJobs, setCompletedJobs] = useState<DeliveryJob[]>([])
@@ -98,7 +102,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     const offStatus = spotly.onStatus(setConnection)
 
     // Restore completed delivery history + earnings from the REST API.
-    spotly.getDeliveryHistory(DEMO_DRIVER_ID).then(apiOrders => {
+    spotly.getDeliveryHistory(driverId).then(apiOrders => {
       if (!apiOrders.length) return
       const delivered = apiOrders.filter(o => o.status === 'delivered')
       setCompletedJobs(prev => {
@@ -150,8 +154,8 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   // Advertise presence to the dispatcher: online (from the power toggle) and
   // busy (mid-delivery). Retained, so the engine always knows availability.
   useEffect(() => {
-    clientRef.current?.setPresence(DEMO_DRIVER_ID, isOnline, !!activeJob, DEMO_DRIVER_NAME)
-  }, [isOnline, activeJob])
+    clientRef.current?.setPresence(driverId, isOnline, !!activeJob, driverName)
+  }, [isOnline, activeJob, driverId, driverName])
 
   // Live tracking: start broadcasting when a job becomes active, stop when it ends.
   // Track the last started ref so status advances don't restart the tracker.
@@ -183,7 +187,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     // Claim on the bus: removes it from other drivers' queues and tells the
     // customer + merchant a driver is assigned.
     claimedRefs.current.add(job.ref)
-    clientRef.current?.claimJob(job.ref, DEMO_DRIVER_ID, DEMO_DRIVER_NAME)
+    clientRef.current?.claimJob(job.ref, driverId, driverName)
   }
 
   const declineJob = (id: string) => {
@@ -197,12 +201,12 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     setActiveJob({ ...activeJob, status: next })
     // Driver-side statuses (picked_up, en_route, delivered) are already the
     // canonical vocabulary, so they publish straight through to the customer.
-    clientRef.current?.advanceOrder(activeJob.ref, next as CanonicalStatus, DEMO_DRIVER_ID, DEMO_DRIVER_NAME)
+    clientRef.current?.advanceOrder(activeJob.ref, next as CanonicalStatus, driverId, driverName)
   }
 
   const finishActiveJob = () => {
     if (activeJob) {
-      clientRef.current?.advanceOrder(activeJob.ref, 'delivered', DEMO_DRIVER_ID, DEMO_DRIVER_NAME)
+      clientRef.current?.advanceOrder(activeJob.ref, 'delivered', driverId, driverName)
     }
     setActiveJob(prev => {
       if (!prev) return prev
