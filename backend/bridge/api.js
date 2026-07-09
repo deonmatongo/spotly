@@ -11,12 +11,16 @@
 //   GET  /api/health
 //   GET  /api/orders?merchantId=X        merchant history (all statuses)
 //   GET  /api/orders?driverId=X          driver delivery history
+//   GET  /api/orders/mine                customer's own orders (auth required)
 //   GET  /api/orders/:ref                single order + audit trail
 //   POST /api/orders                     create + publish to bus
 //   PATCH /api/orders/:ref/status        advance status + publish to bus
 //   GET  /api/merchants/:id/menu         latest menu from DB
 //   PUT  /api/merchants/:id/menu         update menu + publish to bus
+//   GET  /api/merchants/:id/analytics    revenue, demand, top items (derived)
 //   GET  /api/drivers/:id/earnings       earnings derived from delivered orders
+//   GET  /api/listings                   catalog listings (?category, ?q, ?popular)
+//   GET  /api/listings/:id               single listing (with live menu if available)
 //   GET  /api/tickets                    all tickets (admin)
 //   GET  /api/tickets/:code              single ticket
 
@@ -28,7 +32,7 @@ const { router: paymentsRouter } = require('./payments')
 const { router: pushRouter, sendPush } = require('./push')
 
 const {
-  DB_PATH,
+  DB_PATH, db,
   upsertFullOrder, upsertOrderStatus, insertEvent,
   getOrder, getByMerchant, getByDriver, getByCustomerPhone, getEventsByRef,
   countOrders, countEvents,
@@ -37,7 +41,9 @@ const {
   countPayments, countPayouts,
   rowToOrder, orderToRow,
   getUserByPhone, getUserById,
+  getListing, listListings,
 } = require('./db')
+const { seedCatalog, rowToListing } = require('./catalog')
 
 const API_PORT = Number(process.env.API_PORT || 4001)
 
@@ -291,8 +297,140 @@ function startApi(mqttUrl, opts = {}) {
     res.json(row)
   })
 
+  // Merchant analytics — derived from orders in SQLite
+  app.get('/api/merchants/:id/analytics', (req, res) => {
+    const merchantId = req.params.id
+    const now = Date.now()
+    const DAY_MS  = 86400000
+    const WEEK_MS = 7 * DAY_MS
+
+    const todayStartMs = now - (now % DAY_MS)
+    const weekStartMs  = now - WEEK_MS
+    const monthStartMs = now - 30 * DAY_MS
+
+    const weekRows  = db.prepare('SELECT placed_at, total FROM orders WHERE merchant_id = ? AND status = ? AND placed_at >= ?').all(merchantId, 'done', weekStartMs)
+    const todayRows = db.prepare('SELECT total FROM orders WHERE merchant_id = ? AND status = ? AND placed_at >= ?').all(merchantId, 'done', todayStartMs)
+
+    // Group week orders by Mon–Sun label
+    const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    const dayMap = {}
+    DAY_NAMES.forEach(d => { dayMap[d] = { label: d, amount: 0, orders: 0 } })
+    weekRows.forEach(o => {
+      const label = DAY_NAMES[new Date(o.placed_at).getDay()]
+      dayMap[label].amount += o.total
+      dayMap[label].orders++
+    })
+    const weeklyRevenue = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(l => ({
+      label: l,
+      amount: Math.round(dayMap[l].amount * 100) / 100,
+      orders: dayMap[l].orders,
+    }))
+
+    const todayAmount = todayRows.reduce((s, o) => s + o.total, 0)
+    const todayCount  = todayRows.length
+    const weekAmount  = weekRows.reduce((s, o) => s + o.total, 0)
+    const weekCount   = weekRows.length
+
+    // Pending payout: last 30 days done revenue minus 12% platform fee
+    const monthRows = db.prepare('SELECT total FROM orders WHERE merchant_id = ? AND status = ? AND placed_at >= ?').all(merchantId, 'done', monthStartMs)
+    const pendingPayout = monthRows.reduce((s, o) => s + o.total, 0) * 0.88
+
+    // Hourly demand (last 30 days) — normalize to 0–1
+    const hourlyRows = db.prepare(`
+      SELECT strftime('%H', datetime(placed_at / 1000, 'unixepoch')) AS hr, COUNT(*) AS n
+      FROM orders WHERE merchant_id = ? AND placed_at >= ?
+      GROUP BY hr ORDER BY hr
+    `).all(merchantId, monthStartMs)
+
+    const HOUR_LABELS = { '10':'10a','11':'11a','12':'12p','13':'1p','14':'2p','15':'3p','16':'4p','17':'5p','18':'6p','19':'7p','20':'8p' }
+    const hourMap  = {}
+    hourlyRows.forEach(h => { hourMap[h.hr] = h.n })
+    const maxHour  = Math.max(...hourlyRows.map(h => h.n), 1)
+    const orderDemand = Object.entries(HOUR_LABELS).map(([hr, label]) => ({
+      hour: label,
+      level: Math.round(((hourMap[hr] || 0) / maxHour) * 100) / 100,
+    }))
+
+    // Peak window from top-2 hours
+    let peakWindow = '12:00 PM – 2:00 PM & 6:00 PM – 8:00 PM'
+    if (hourlyRows.length >= 2) {
+      const top = [...hourlyRows].sort((a, b) => b.n - a.n).slice(0, 2)
+      const fmt = hr => {
+        const n = parseInt(hr, 10)
+        return n < 12 ? `${n}:00 AM` : n === 12 ? '12:00 PM' : `${n - 12}:00 PM`
+      }
+      peakWindow = `${fmt(top[0].hr)} & ${fmt(top[1].hr)}`
+    }
+
+    // Top items via json_each (SQLite 3.38+, ships with Node 18+)
+    let topItems = []
+    try {
+      topItems = db.prepare(`
+        SELECT json_extract(item.value, '$.name') AS name,
+               SUM(CAST(json_extract(item.value, '$.qty') AS INTEGER)) AS sold,
+               SUM(CAST(json_extract(item.value, '$.qty') AS INTEGER) * CAST(json_extract(item.value, '$.price') AS REAL)) AS revenue
+        FROM orders, json_each(orders.items) AS item
+        WHERE orders.merchant_id = ? AND orders.status = ? AND orders.placed_at >= ?
+        GROUP BY name ORDER BY sold DESC LIMIT 8
+      `).all(merchantId, 'done', monthStartMs)
+        .map(r => ({ name: r.name, sold: r.sold, revenue: Math.round(r.revenue * 100) / 100 }))
+    } catch { /* json_each unavailable or malformed items */ }
+
+    res.json({
+      weeklyRevenue,
+      revenueSummary: {
+        today: {
+          amount: Math.round(todayAmount * 100) / 100,
+          orders: todayCount,
+          avgOrderValue: todayCount > 0 ? Math.round((todayAmount / todayCount) * 100) / 100 : 0,
+        },
+        week: {
+          amount: Math.round(weekAmount * 100) / 100,
+          orders: weekCount,
+        },
+        pendingPayout: Math.round(pendingPayout * 100) / 100,
+        platformFeeRate: 0.12,
+      },
+      orderDemand,
+      peakWindow,
+      topItems,
+    })
+  })
+
+  // Listings catalog
+  app.get('/api/listings', (req, res) => {
+    const { category, q, popular } = req.query
+    let sql = 'SELECT * FROM listings WHERE active = 1'
+    const params = []
+    if (category) { sql += ' AND category = ?'; params.push(String(category)) }
+    if (popular === 'true') { sql += ' AND popular = 1' }
+    if (q) {
+      sql += ' AND (name LIKE ? OR cuisine LIKE ? OR tags LIKE ? OR description LIKE ?)'
+      const like = `%${String(q)}%`
+      params.push(like, like, like, like)
+    }
+    sql += ' ORDER BY popular DESC, rating DESC'
+    res.json(db.prepare(sql).all(...params).map(rowToListing))
+  })
+
+  app.get('/api/listings/:id', (req, res) => {
+    const row = getListing.get(Number(req.params.id))
+    if (!row) return res.status(404).json({ error: 'not found' })
+    const listing = rowToListing(row)
+    // Inject the live menu if this listing has a connected merchant
+    if (listing.merchantId) {
+      const menuRow = getMenu.get(listing.merchantId)
+      if (menuRow) {
+        const liveItems = JSON.parse(menuRow.items || '[]')
+        if (liveItems.length) listing.menu = liveItems
+      }
+    }
+    res.json(listing)
+  })
+
   app.listen(API_PORT, () => {
     console.log(`[api] REST on :${API_PORT} · DB: ${DB_PATH}`)
+    seedCatalog(db)
   })
 }
 

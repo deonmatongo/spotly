@@ -10,7 +10,7 @@ import { spacing, cut } from '../theme'
 import { Palette, useTheme } from '../context/ThemeContext'
 import { useStore } from '../context/StoreContext'
 import { useOrders } from '../context/OrdersContext'
-import { weeklyRevenue, revenueSummary } from '../data/mock'
+import { useAnalytics } from '../context/AnalyticsContext'
 import { RootStackParamList } from '../navigation'
 import OrderCard from '../components/OrderCard'
 import AppText from '../components/AppText'
@@ -39,6 +39,7 @@ export default function HomeScreen() {
   const nav = useNavigation<Nav>()
   const { store, isOpen, toggleOpen } = useStore()
   const { orders, newOrders, preparingOrders } = useOrders()
+  const { weeklyRevenue, revenueSummary } = useAnalytics()
   const maxAmount = Math.max(...weeklyRevenue.map(d => d.amount))
   const todayRevenue = useCountUp(revenueSummary.today.amount, 800)
 

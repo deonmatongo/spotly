@@ -240,6 +240,40 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_push_user ON push_tokens(user_id);
 `)
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS listings (
+    id            INTEGER PRIMARY KEY,
+    category      TEXT    NOT NULL DEFAULT 'food',
+    type          TEXT    DEFAULT 'restaurant',
+    name          TEXT    NOT NULL,
+    cuisine       TEXT    DEFAULT '',
+    rating        REAL    DEFAULT 4.5,
+    review_count  INTEGER DEFAULT 0,
+    price_level   TEXT    DEFAULT '$$',
+    distance      TEXT    DEFAULT '',
+    address       TEXT    DEFAULT '',
+    description   TEXT    DEFAULT '',
+    image         TEXT    DEFAULT '',
+    images        TEXT    DEFAULT '[]',
+    tags          TEXT    DEFAULT '[]',
+    features      TEXT    DEFAULT '[]',
+    hours         TEXT    DEFAULT '',
+    time_slots    TEXT    DEFAULT '[]',
+    ticket_tiers  TEXT    DEFAULT '[]',
+    event_date    TEXT,
+    event_time    TEXT,
+    points_earned INTEGER DEFAULT 50,
+    eta           TEXT    DEFAULT '',
+    popular       INTEGER DEFAULT 0,
+    price         REAL,
+    menu          TEXT    DEFAULT '[]',
+    merchant_id   TEXT    DEFAULT '',
+    active        INTEGER DEFAULT 1
+  );
+  CREATE INDEX IF NOT EXISTS idx_listings_category ON listings(category);
+  CREATE INDEX IF NOT EXISTS idx_listings_popular  ON listings(popular);
+`)
+
 // push token prepared statements
 
 const insertUser     = db.prepare('INSERT OR IGNORE INTO users (id,phone,name,role,status,created_at) VALUES (@id,@phone,@name,@role,@status,@created_at)')
@@ -272,6 +306,9 @@ const countPayouts         = db.prepare('SELECT COUNT(*) AS n FROM payouts')
 const upsertPushToken  = db.prepare(`INSERT INTO push_tokens (user_id, token, platform, updated_at) VALUES (@user_id, @token, @platform, @updated_at) ON CONFLICT(user_id, token) DO UPDATE SET updated_at = excluded.updated_at`)
 const getPushTokens    = db.prepare('SELECT token FROM push_tokens WHERE user_id = ?')
 const deletePushToken  = db.prepare('DELETE FROM push_tokens WHERE user_id = ? AND token = ?')
+
+const getListing          = db.prepare('SELECT * FROM listings WHERE id = ? AND active = 1')
+const listListings        = db.prepare('SELECT * FROM listings WHERE active = 1 ORDER BY popular DESC, rating DESC')
 
 // ── Conversion helpers ───────────────────────────────────────────────────────
 
@@ -343,4 +380,6 @@ module.exports = {
   insertPayout, getPayoutsByDriver, updatePayoutStatus, countPayouts,
   // push tokens
   upsertPushToken, getPushTokens, deletePushToken,
+  // listings catalog
+  getListing, listListings,
 }

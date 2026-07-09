@@ -8,13 +8,15 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { spacing, radius, shadow, fonts, cut } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
-import { listings, currentUser } from '../data/mock'
+import { currentUser } from '../data/mock'
+import { useListings } from '../context/ListingsContext'
 import VenueCard from '../components/VenueCard'
 import Tappable from '../components/Tappable'
 import LiveOrderBanner from '../components/LiveOrderBanner'
 import useCountUp from '../hooks/useCountUp'
 import { RootStackParamList } from '../navigation'
 import { Listing } from '../data/mock'
+// Listing type re-exported here for use in goToDetail/goToBooking types
 import { useNotifications } from '../context/NotificationsContext'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
@@ -55,6 +57,7 @@ export default function HomeScreen() {
   const styles = makeStyles(colors)
   const nav = useNavigation<Nav>()
   const { unreadCount } = useNotifications()
+  const { listings } = useListings()
   const popular = listings.filter(l => l.popular)
   const events = listings.filter(l => l.category === 'events')
   const experiences = listings.filter(l => l.category === 'experiences')

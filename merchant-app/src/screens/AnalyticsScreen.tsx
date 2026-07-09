@@ -9,7 +9,8 @@ import Animated, {
 } from 'react-native-reanimated'
 import { spacing, cut } from '../theme'
 import { Palette, useTheme } from '../context/ThemeContext'
-import { weeklyRevenue, revenueSummary, orderDemand, peakWindow, topItems, ratingData } from '../data/mock'
+import { useAnalytics } from '../context/AnalyticsContext'
+import { ratingData } from '../data/mock'
 import { RootStackParamList } from '../navigation'
 import AppText from '../components/AppText'
 import Tappable from '../components/Tappable'
@@ -54,6 +55,7 @@ export default function AnalyticsScreen() {
   const { colors } = useTheme()
   const styles = makeStyles(colors)
   const nav = useNavigation<Nav>()
+  const { weeklyRevenue, revenueSummary, orderDemand, peakWindow, topItems } = useAnalytics()
   const maxAmount = Math.max(...weeklyRevenue.map(d => d.amount))
   const pending = useCountUp(revenueSummary.pendingPayout, 700)
   const weekTotal = useCountUp(revenueSummary.week.amount, 800)

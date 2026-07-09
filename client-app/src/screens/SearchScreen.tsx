@@ -6,7 +6,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { colors, spacing, radius } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
-import { listings, Listing } from '../data/mock'
+import { Listing } from '../data/mock'
+import { useListings } from '../context/ListingsContext'
 import VenueCard from '../components/VenueCard'
 import { RootStackParamList, TabParamList } from '../navigation'
 
@@ -45,6 +46,7 @@ export default function SearchScreen() {
   const styles = makeStyles(colors)
   const nav = useNavigation<Nav>()
   const route = useRoute<Route>()
+  const { listings } = useListings()
   const [query, setQuery] = useState(route.params?.query ?? '')
   const [cat, setCat] = useState(
     route.params?.category ? route.params.category.charAt(0).toUpperCase() + route.params.category.slice(1) : 'All'

@@ -18,6 +18,7 @@ import { StoreProvider } from './src/context/StoreContext'
 import { OrdersProvider } from './src/context/OrdersContext'
 import { MenuProvider } from './src/context/MenuContext'
 import { NotificationsProvider } from './src/context/NotificationsContext'
+import { AnalyticsProvider } from './src/context/AnalyticsContext'
 import { configureBroker } from '@spotly/shared'
 import { colors } from './src/theme'
 import AppText from './src/components/AppText'
@@ -131,19 +132,21 @@ function AppGate() {
   )
 
   return (
-    <NotificationsProvider>
-      <StoreProvider>
-        <OrdersProvider>
-          <MenuProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <SafeAreaProvider>
-                <ThemedNavRoot />
-              </SafeAreaProvider>
-            </GestureHandlerRootView>
-          </MenuProvider>
-        </OrdersProvider>
-      </StoreProvider>
-    </NotificationsProvider>
+    <AnalyticsProvider>
+      <NotificationsProvider>
+        <StoreProvider>
+          <OrdersProvider>
+            <MenuProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <SafeAreaProvider>
+                  <ThemedNavRoot />
+                </SafeAreaProvider>
+              </GestureHandlerRootView>
+            </MenuProvider>
+          </OrdersProvider>
+        </StoreProvider>
+      </NotificationsProvider>
+    </AnalyticsProvider>
   )
 }
 
