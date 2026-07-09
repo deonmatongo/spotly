@@ -108,6 +108,13 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
 
+  -- Per-merchant settings (open/closed state etc.).
+  CREATE TABLE IF NOT EXISTS merchant_settings (
+    user_id    TEXT    PRIMARY KEY,
+    is_open    INTEGER DEFAULT 1,
+    updated_at INTEGER DEFAULT 0
+  );
+
   -- In-app notifications per user.
   CREATE TABLE IF NOT EXISTS notifications (
     id         TEXT    PRIMARY KEY,
@@ -395,6 +402,14 @@ const markNotifRead        = db.prepare('UPDATE notifications SET read = 1 WHERE
 const markAllNotifsRead    = db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ?')
 const deleteUserNotifs     = db.prepare('DELETE FROM notifications WHERE user_id = ?')
 
+// Merchant settings
+const upsertMerchantSettings = db.prepare(`
+  INSERT INTO merchant_settings (user_id, is_open, updated_at)
+  VALUES (@user_id, @is_open, @updated_at)
+  ON CONFLICT(user_id) DO UPDATE SET is_open = excluded.is_open, updated_at = excluded.updated_at
+`)
+const getMerchantSettings    = db.prepare('SELECT * FROM merchant_settings WHERE user_id = ?')
+
 // Offers
 const insertOffer          = db.prepare(`
   INSERT OR IGNORE INTO offers (id, code, title, blurb, detail, category, discount_type, amount, min_spend, expires, colors, icon, active)
@@ -478,6 +493,8 @@ module.exports = {
   insertBooking, getBookingsByUser, getBookingById, updateBookingStatus, patchBooking,
   // favorites
   insertFavorite, deleteFavorite, getFavoritesByUser,
+  // merchant settings
+  upsertMerchantSettings, getMerchantSettings,
   // notifications
   insertNotification, getNotifsByUser, markNotifRead, markAllNotifsRead, deleteUserNotifs,
   // offers

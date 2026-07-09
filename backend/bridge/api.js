@@ -46,6 +46,7 @@ const {
   insertFavorite, deleteFavorite, getFavoritesByUser,
   insertNotification, getNotifsByUser, markNotifRead, markAllNotifsRead, deleteUserNotifs,
   insertOffer, getAllOffers,
+  upsertMerchantSettings, getMerchantSettings,
 } = require('./db')
 const { seedCatalog, rowToListing } = require('./catalog')
 
@@ -521,6 +522,19 @@ function startApi(mqttUrl, opts = {}) {
   app.delete('/api/favorites/:listingId', requireAuth(), (req, res) => {
     deleteFavorite.run(req.user.sub, Number(req.params.listingId))
     res.status(204).end()
+  })
+
+  // ── Merchant settings ───────────────────────────────────────────────────────
+
+  app.get('/api/merchant/settings', requireAuth(), (req, res) => {
+    const row = getMerchantSettings.get(req.user.sub)
+    res.json({ isOpen: row ? !!row.is_open : true })
+  })
+
+  app.patch('/api/merchant/settings', requireAuth(), (req, res) => {
+    const isOpen = req.body.isOpen !== false
+    upsertMerchantSettings.run({ user_id: req.user.sub, is_open: isOpen ? 1 : 0, updated_at: Date.now() })
+    res.json({ isOpen })
   })
 
   // ── Notifications ───────────────────────────────────────────────────────────

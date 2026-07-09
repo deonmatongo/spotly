@@ -28,7 +28,7 @@ export default function MenuScreen() {
   const filtered = category === 'All' ? items : items.filter(i => i.category === category)
   const availableCount = items.filter(i => i.available).length
 
-  const toggleItem = (id: string) => toggleAvailability(id)
+  const toggleItem = (id: string, available: boolean) => toggleAvailability(id, available)
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -72,7 +72,7 @@ export default function MenuScreen() {
               index={i}
               colors={colors}
               onToggle={toggleItem}
-              onPress={() => {}}
+              onPress={() => nav.navigate('EditItem', { item })}
             />
           ))
         )}

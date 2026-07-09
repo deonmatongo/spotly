@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { currentStore } from '../data/mock'
+import { getApiUrl } from '@spotly/shared'
 import { useAuth } from './AuthContext'
 
 interface StoreContextType {
@@ -12,9 +13,32 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
-  const [isOpen, setOpen] = useState(true)
-  const toggleOpen = () => setOpen(v => !v)
+  const { user, accessToken } = useAuth()
+  const [isOpen, setOpenState] = useState(true)
+
+  // Load persisted open/closed state on auth
+  useEffect(() => {
+    if (!user || !accessToken) return
+    fetch(`${getApiUrl()}/api/merchant/settings`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data && typeof data.isOpen === 'boolean') setOpenState(data.isOpen) })
+      .catch(() => {})
+  }, [user?.id, accessToken])
+
+  const setOpen = useCallback((v: boolean) => {
+    setOpenState(v)
+    if (accessToken) {
+      fetch(`${getApiUrl()}/api/merchant/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ isOpen: v }),
+      }).catch(() => {})
+    }
+  }, [accessToken])
+
+  const toggleOpen = useCallback(() => setOpen(!isOpen), [isOpen, setOpen])
 
   const store = {
     ...currentStore,

@@ -12,9 +12,10 @@ interface NewItem {
 
 interface MenuContextType {
   items: MenuItem[]
-  toggleAvailability: (id: string) => void
+  toggleAvailability: (id: string, value?: boolean) => void
   setPrice: (id: string, price: number) => void
   addItem: (item: NewItem) => void
+  editItem: (id: string, updates: Partial<NewItem>) => void
 }
 
 const MenuContext = createContext<MenuContextType | null>(null)
@@ -40,15 +41,18 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     })))
   }, [items])
 
-  const toggleAvailability = (id: string) =>
-    setItems(prev => prev.map(i => i.id === id ? { ...i, available: !i.available } : i))
+  const toggleAvailability = (id: string, value?: boolean) =>
+    setItems(prev => prev.map(i => i.id === id ? { ...i, available: value ?? !i.available } : i))
   const setPrice = (id: string, price: number) =>
     setItems(prev => prev.map(i => i.id === id ? { ...i, price } : i))
   const addItem = (item: NewItem) =>
     setItems(prev => [{ ...item, id: 'm' + Date.now(), soldToday: 0 }, ...prev])
 
+  const editItem = (id: string, updates: Partial<NewItem>) =>
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+
   return (
-    <MenuContext.Provider value={{ items, toggleAvailability, setPrice, addItem }}>
+    <MenuContext.Provider value={{ items, toggleAvailability, setPrice, addItem, editItem }}>
       {children}
     </MenuContext.Provider>
   )
