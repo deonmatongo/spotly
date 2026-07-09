@@ -12,3 +12,6 @@ android/
 spotly.db
 spotly.db-shm
 spotly.db-wal
+
+# Automated DB backups
+backups/

@@ -33,6 +33,11 @@ const twilioVerifyRouter = require('./twilio-verify')
 const { router: paymentsRouter } = require('./payments')
 const { router: pushRouter, sendPush } = require('./push')
 const { createWhatsAppChat } = require('./whatsapp-chat')
+const { createAdmin } = require('./admin')
+const { router: complianceRouter } = require('./compliance')
+const { securityHeaders, rateLimit } = require('./security')
+const { requestLogger, errorHandler, initSentry, metricsSnapshot, markStart } = require('./observability')
+const { startBackups } = require('./backup')
 
 const {
   DB_PATH, db,
@@ -191,11 +196,24 @@ function startApi(mqttUrl, opts = {}) {
   })
 
   // ── Express REST ────────────────────────────────────────────────────────────
+  initSentry()                          // no-op unless SENTRY_DSN is set
   const app = express()
+  app.disable('x-powered-by')
+  app.set('trust proxy', 1)             // honour X-Forwarded-For behind one proxy
+  app.use(securityHeaders)
+  app.use(requestLogger)
   app.use(cors())
-  app.use(express.json())
+  app.use(express.json({ limit: '1mb' }))
 
-  // Auth — existing phone OTP flow
+  // Global safety-net rate limit (generous; per-route limits are tighter).
+  app.use('/api', rateLimit({ windowMs: 60_000, max: 600, name: 'global' }))
+
+  // Auth — existing phone OTP flow. OTP endpoints are a brute-force target, so
+  // cap them hard per IP (send + verify).
+  const otpLimiter = rateLimit({ windowMs: 15 * 60_000, max: 20, name: 'otp' })
+  app.use('/auth/otp', otpLimiter)
+  app.use('/api/auth/send-otp', otpLimiter)
+  app.use('/api/auth/verify-otp', otpLimiter)
   app.use('/auth', authRouter)
   // Twilio Verify WhatsApp/SMS OTP flow (new endpoints)
   app.use('/api/auth', twilioVerifyRouter)
@@ -225,6 +243,18 @@ function startApi(mqttUrl, opts = {}) {
 
   // WhatsApp support chat (webhooks + agent console)
   app.use('/api', createWhatsAppChat(io))
+
+  // Admin / ops console — refunds publish a cancellation onto the bus.
+  const publish = (topic, payload) => client.publish(topic, JSON.stringify(payload), { qos: 1 })
+  app.use('/api/admin', createAdmin({ publish }))
+
+  // Ops metrics (admin-only)
+  app.get('/api/metrics', requireAuth(['admin']), (_req, res) => {
+    res.json(metricsSnapshot(Date.now()))
+  })
+
+  // Age / ID compliance (age gate + status)
+  app.use('/api/compliance', complianceRouter)
 
   // Health
   app.get('/api/health', (_req, res) => {
@@ -724,11 +754,37 @@ function startApi(mqttUrl, opts = {}) {
     res.json(records)
   })
 
+  // Terminal error handler — must be mounted AFTER every route.
+  app.use(errorHandler)
+
   server.listen(API_PORT, () => {
+    markStart(Date.now())
     console.log(`[api] REST on :${API_PORT} · DB: ${DB_PATH}`)
     seedCatalog(db)
     seedOffers(db)
+    seedAdmin(db)
+    if (process.env.BACKUPS !== 'off') startBackups()
   })
+}
+
+// Seed a bootstrap admin so the ops console is reachable on a fresh DB.
+// Override the phone with ADMIN_PHONE; the account signs in via the normal
+// OTP flow (no password) and can promote others from the console.
+function seedAdmin(db) {
+  try {
+    const phone = process.env.ADMIN_PHONE || '+263770000000'
+    const existing = db.prepare('SELECT id, role FROM users WHERE phone = ?').get(phone)
+    if (!existing) {
+      db.prepare('INSERT INTO users (id, phone, name, role, status, created_at) VALUES (?,?,?,?,?,?)')
+        .run(require('crypto').randomUUID(), phone, 'Spotly Admin', 'admin', 'active', Date.now())
+      console.log(`[admin] seeded bootstrap admin ${phone}`)
+    } else if (existing.role !== 'admin') {
+      db.prepare("UPDATE users SET role = 'admin' WHERE phone = ?").run(phone)
+      console.log(`[admin] promoted ${phone} to admin`)
+    }
+  } catch (err) {
+    console.warn('[admin] seed error:', err.message)
+  }
 }
 
 module.exports = { startApi }

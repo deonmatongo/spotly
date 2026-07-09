@@ -61,18 +61,25 @@ providers, harden the infrastructure, and ship to the stores.**
 8. **Order edge cases.** Cancellation, partial refunds, failed-payment retries,
    and out-of-stock mid-order are only partially handled end-to-end.
 
-## Tier 3 — Trust, ops & legal
+## Tier 3 — Trust, ops & legal  ✅ _built this pass (see notes)_
 
-9.  **Admin / ops console.** No surface yet to manage users, resolve disputes,
-    issue refunds, suspend accounts, or monitor live orders.
-10. **Legal & compliance.** Terms, privacy policy, data-protection stance, real
-    driver background checks (currently mock), insurance, and age/ID checks for
-    event & alcohol sales.
-11. **Security hardening.** Rate limiting, input validation on every endpoint,
-    webhook signature verification (done for WhatsApp; needed for payments),
-    secrets management, and automated DB backups.
-12. **Monitoring & delivery.** Error tracking (Sentry), uptime/alerting,
-    product analytics, log aggregation, and CI/CD.
+9.  **Admin / ops console.** ✅ Built — `backend/bridge/admin.js` (users
+    suspend/activate/role/compliance, live order monitor, refund+cancel, dispute
+    queue, audit log, ops metrics) + a React ops console (`admin-console/`). Every
+    action is role-guarded, rate-limited, and written to an immutable `audit_log`.
+10. **Legal & compliance.** ✅ Drafted — `legal/` (terms, privacy, data-protection)
+    + `COMPLIANCE.md`, plus a working **age gate** (`compliance.js`,
+    `requireAgeVerified`) and driver `background_check` state in the ops console.
+    _Still needs: counsel review of the legal drafts, and real ID/background-check
+    + insurance **providers** (deferred, documented in `COMPLIANCE.md`)._
+11. **Security hardening.** ✅ Built — `security.js`: per-IP rate limiting (tight on
+    OTP), security headers, input validation, and constant-time payment-webhook
+    HMAC verification; automated retained DB backups (`backup.js`). _Still needs:
+    the payment webhook wired to a real PSP secret._
+12. **Monitoring & delivery.** ✅ Built — `observability.js`: structured request
+    logging, `/api/metrics`, an error handler, and an env-gated Sentry hook; a
+    GitHub Actions **CI** pipeline (`.github/workflows/ci.yml`). _Still needs: a
+    `SENTRY_DSN` + uptime/alerting and product analytics (deferred)._
 
 ## Tier 4 — Polish
 

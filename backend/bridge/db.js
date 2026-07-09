@@ -211,7 +211,50 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_messages_convo ON messages(conversation_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_messages_sid   ON messages(provider_sid);
+
+  -- ── Admin/ops: customer & merchant disputes ────────────────────────────────
+  CREATE TABLE IF NOT EXISTS disputes (
+    id           TEXT PRIMARY KEY,
+    order_ref    TEXT    DEFAULT '',
+    raised_by    TEXT    DEFAULT '',      -- user id who opened it
+    against      TEXT    DEFAULT '',      -- 'merchant' | 'driver' | 'customer'
+    reason       TEXT    DEFAULT '',
+    detail       TEXT    DEFAULT '',
+    status       TEXT    DEFAULT 'open',  -- open | investigating | resolved | rejected
+    resolution   TEXT    DEFAULT '',
+    resolved_by  TEXT    DEFAULT '',      -- admin id
+    created_at   INTEGER DEFAULT 0,
+    resolved_at  INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_disputes_status ON disputes(status);
+  CREATE INDEX IF NOT EXISTS idx_disputes_order  ON disputes(order_ref);
+
+  -- ── Admin/ops: immutable audit trail of privileged actions ─────────────────
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor_id   TEXT    DEFAULT '',
+    actor_name TEXT    DEFAULT '',
+    action     TEXT    NOT NULL,          -- e.g. 'user.suspend', 'order.refund'
+    target     TEXT    DEFAULT '',        -- affected entity id
+    detail     TEXT    DEFAULT '',        -- JSON context
+    ip         TEXT    DEFAULT '',
+    created_at INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_audit_actor  ON audit_log(actor_id);
+  CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
+  CREATE INDEX IF NOT EXISTS idx_audit_ts     ON audit_log(created_at);
 `)
+
+// ── Additive column migrations ─────────────────────────────────────────────────
+// SQLite can't add columns via CREATE TABLE IF NOT EXISTS, so add-if-missing here.
+// Safe to run on every boot: each column is checked against the live schema.
+// NB: called AFTER each target table's CREATE (see users compliance block below).
+function addColumn(table, column, ddl) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all()
+  if (!cols.some(c => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`)
+  }
+}
 
 // ── Prepared statements ──────────────────────────────────────────────────────
 
@@ -330,6 +373,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_sessions_user  ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
 `)
+
+// Compliance fields on users (age/ID gate for events + alcohol; driver vetting).
+// Runs after the users table exists above.
+addColumn('users', 'dob',              "TEXT DEFAULT ''")           // ISO date
+addColumn('users', 'age_verified',     'INTEGER DEFAULT 0')         // 18+ confirmed
+addColumn('users', 'id_status',        "TEXT DEFAULT 'unverified'") // unverified|pending|verified|rejected
+addColumn('users', 'background_check', "TEXT DEFAULT 'none'")       // drivers: none|pending|clear|flagged
+addColumn('users', 'suspended_reason', "TEXT DEFAULT ''")
+addColumn('users', 'suspended_at',     'INTEGER DEFAULT 0')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS payments (
@@ -539,6 +591,39 @@ const insertMessage = db.prepare(`
 const getMessagesByConversation = db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT 500')
 const updateMessageStatusBySid  = db.prepare('UPDATE messages SET status = @status WHERE provider_sid = @provider_sid')
 
+// ── Admin: users management ───────────────────────────────────────────────────
+const listUsers        = db.prepare(`SELECT id, phone, name, role, status, id_status, background_check,
+  age_verified, suspended_reason, created_at FROM users ORDER BY created_at DESC LIMIT 1000`)
+const searchUsers      = db.prepare(`SELECT id, phone, name, role, status, id_status, background_check,
+  age_verified, suspended_reason, created_at FROM users
+  WHERE phone LIKE @q OR name LIKE @q OR id = @exact ORDER BY created_at DESC LIMIT 200`)
+const setUserStatus    = db.prepare('UPDATE users SET status = @status, suspended_reason = @reason, suspended_at = @at WHERE id = @id')
+const setUserRole      = db.prepare('UPDATE users SET role = @role WHERE id = @id')
+const setUserCompliance= db.prepare('UPDATE users SET id_status = @id_status, age_verified = @age_verified, background_check = @background_check WHERE id = @id')
+const setUserAge       = db.prepare('UPDATE users SET dob = @dob, age_verified = @age_verified WHERE id = @id')
+const countUsers       = db.prepare('SELECT COUNT(*) AS n FROM users')
+const countUsersByRole = db.prepare("SELECT role, COUNT(*) AS n FROM users GROUP BY role")
+
+// ── Admin: disputes ───────────────────────────────────────────────────────────
+const insertDispute    = db.prepare(`INSERT INTO disputes
+  (id, order_ref, raised_by, against, reason, detail, status, resolution, resolved_by, created_at, resolved_at)
+  VALUES (@id, @order_ref, @raised_by, @against, @reason, @detail, @status, '', '', @created_at, 0)`)
+const listDisputes     = db.prepare('SELECT * FROM disputes ORDER BY created_at DESC LIMIT 500')
+const listDisputesByStatus = db.prepare('SELECT * FROM disputes WHERE status = ? ORDER BY created_at DESC LIMIT 500')
+const getDispute       = db.prepare('SELECT * FROM disputes WHERE id = ?')
+const resolveDispute   = db.prepare('UPDATE disputes SET status = @status, resolution = @resolution, resolved_by = @resolved_by, resolved_at = @resolved_at WHERE id = @id')
+const countOpenDisputes= db.prepare("SELECT COUNT(*) AS n FROM disputes WHERE status IN ('open','investigating')")
+
+// ── Admin: audit log ──────────────────────────────────────────────────────────
+const insertAudit      = db.prepare(`INSERT INTO audit_log (actor_id, actor_name, action, target, detail, ip, created_at)
+  VALUES (@actor_id, @actor_name, @action, @target, @detail, @ip, @created_at)`)
+const listAudit        = db.prepare('SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 500')
+
+// ── Admin: live order monitor ─────────────────────────────────────────────────
+const listRecentOrders = db.prepare('SELECT * FROM orders ORDER BY placed_at DESC LIMIT 200')
+const listActiveOrders = db.prepare(`SELECT * FROM orders
+  WHERE status NOT IN ('delivered','done','declined','cancelled') ORDER BY placed_at DESC LIMIT 200`)
+
 // ── Conversion helpers ───────────────────────────────────────────────────────
 
 function rowToOrder(row) {
@@ -630,4 +715,12 @@ module.exports = {
   touchConversation, setConversationStatus, assignConversation, clearConversationUnread,
   // whatsapp support — messages
   insertMessage, getMessagesByConversation, updateMessageStatusBySid,
+  // admin — users
+  listUsers, searchUsers, setUserStatus, setUserRole, setUserCompliance, setUserAge, countUsers, countUsersByRole,
+  // admin — disputes
+  insertDispute, listDisputes, listDisputesByStatus, getDispute, resolveDispute, countOpenDisputes,
+  // admin — audit log
+  insertAudit, listAudit,
+  // admin — orders monitor
+  listRecentOrders, listActiveOrders,
 }
