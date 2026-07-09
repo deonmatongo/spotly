@@ -382,6 +382,7 @@ addColumn('users', 'id_status',        "TEXT DEFAULT 'unverified'") // unverifie
 addColumn('users', 'background_check', "TEXT DEFAULT 'none'")       // drivers: none|pending|clear|flagged
 addColumn('users', 'suspended_reason', "TEXT DEFAULT ''")
 addColumn('users', 'suspended_at',     'INTEGER DEFAULT 0')
+addColumn('users', 'merchant_id',      "TEXT DEFAULT ''")  // storefront slug for merchant users
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS payments (
@@ -413,6 +414,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_payouts_driver ON payouts(driver_id);
   CREATE INDEX IF NOT EXISTS idx_payouts_status ON payouts(status);
 `)
+
+// Partial-refund support: cumulative amount already refunded on a payment.
+addColumn('payments', 'refunded_amount', 'REAL DEFAULT 0')
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS push_tokens (
@@ -494,6 +498,24 @@ const deletePushToken  = db.prepare('DELETE FROM push_tokens WHERE user_id = ? A
 
 const getListing          = db.prepare('SELECT * FROM listings WHERE id = ? AND active = 1')
 const listListings        = db.prepare('SELECT * FROM listings WHERE active = 1 ORDER BY popular DESC, rating DESC')
+
+// Partial + full refunds — record cumulative refunded amount alongside status.
+const applyRefund         = db.prepare('UPDATE payments SET status = @status, refunded_amount = @refunded_amount, updated_at = @updated_at WHERE id = @id')
+
+// Merchant self-onboarding — create/update a storefront listing.
+const insertListing       = db.prepare(`
+  INSERT INTO listings (category, type, name, cuisine, price_level, address, description, image, hours, merchant_id, active)
+  VALUES (@category, @type, @name, @cuisine, @price_level, @address, @description, @image, @hours, @merchant_id, 1)
+`)
+const updateListingProfile = db.prepare(`
+  UPDATE listings SET name = @name, cuisine = @cuisine, price_level = @price_level,
+    address = @address, description = @description, hours = @hours
+  WHERE merchant_id = @merchant_id
+`)
+const getListingByMerchant = db.prepare('SELECT * FROM listings WHERE merchant_id = ? LIMIT 1')
+const setListingActive     = db.prepare('UPDATE listings SET active = @active WHERE merchant_id = @merchant_id')
+const setUserMerchant      = db.prepare("UPDATE users SET role = 'merchant', merchant_id = @merchant_id WHERE id = @id")
+const merchantSlugExists   = db.prepare('SELECT 1 FROM listings WHERE merchant_id = ? LIMIT 1')
 
 // Bookings
 const insertBooking       = db.prepare(`
@@ -723,4 +745,9 @@ module.exports = {
   insertAudit, listAudit,
   // admin — orders monitor
   listRecentOrders, listActiveOrders,
+  // order edge cases — refunds
+  applyRefund,
+  // merchant onboarding — listings
+  insertListing, updateListingProfile, getListingByMerchant, setListingActive,
+  setUserMerchant, merchantSlugExists,
 }

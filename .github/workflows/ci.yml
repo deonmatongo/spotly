@@ -34,7 +34,8 @@ jobs:
         run: |
           node -e "require('./db'); require('./security'); require('./observability'); \
                    require('./whatsapp-chat'); require('./admin'); require('./compliance'); \
-                   require('./backup'); console.log('all modules load OK')"
+                   require('./backup'); require('./order-policy'); require('./orders-ops'); \
+                   require('./geo'); require('./merchant-onboard'); console.log('all modules load OK')"
 
       - name: Unit tests (node:test)
         env:

@@ -35,6 +35,9 @@ const { router: pushRouter, sendPush } = require('./push')
 const { createWhatsAppChat } = require('./whatsapp-chat')
 const { createAdmin } = require('./admin')
 const { router: complianceRouter } = require('./compliance')
+const { createOrdersOps } = require('./orders-ops')
+const { createMerchantOnboard } = require('./merchant-onboard')
+const { router: geoRouter } = require('./geo')
 const { securityHeaders, rateLimit } = require('./security')
 const { requestLogger, errorHandler, initSentry, metricsSnapshot, markStart } = require('./observability')
 const { startBackups } = require('./backup')
@@ -255,6 +258,19 @@ function startApi(mqttUrl, opts = {}) {
 
   // Age / ID compliance (age gate + status)
   app.use('/api/compliance', complianceRouter)
+
+  // Order edge cases (cancel, partial/full refund, payment retry, out-of-stock).
+  // notify() resolves a customer phone → user → push.
+  const notify = (phone, title, body, data) => {
+    try { const u = getUserByPhone.get(phone); if (u) sendPush(u.id, title, body, data) } catch {}
+  }
+  app.use('/api', createOrdersOps({ publish, notify }))
+
+  // Merchant self-onboarding (signup → storefront → profile/hours/open → menu)
+  app.use('/api/merchant', createMerchantOnboard({ publish }))
+
+  // Geocoding + routing/ETAs
+  app.use('/api/geo', geoRouter)
 
   // Health
   app.get('/api/health', (_req, res) => {

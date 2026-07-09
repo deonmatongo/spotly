@@ -47,19 +47,27 @@ providers, harden the infrastructure, and ship to the stores.**
    against the provider, webhook signature verification, an auditable ledger, and
    idempotency on charge/refund. Heaviest lift, technically and legally.
 
-## Tier 2 — Core product completeness
+## Tier 2 — Core product completeness  ✅ _built this pass (see notes)_
 
-5. **Real background GPS.** The driver publishes real GPS, but background tracking
-   needs a standalone build (not Expo Go) with the iOS background-location
-   entitlement + an Android foreground service. (Simulated-GPS mode is demo-only.)
-6. **Merchant self-onboarding.** Live menus exist, but there's no self-serve
-   signup → verify → menu/inventory/pricing/hours flow to add a new merchant
-   without hand-seeding.
-7. **Real geocoding + ETAs.** Addresses use hardcoded coords and the public OSRM
-   demo server (rate-limited). Needs a geocoding provider + a production routing
-   provider, plus a Google Maps API key for Android maps.
-8. **Order edge cases.** Cancellation, partial refunds, failed-payment retries,
-   and out-of-stock mid-order are only partially handled end-to-end.
+5. **Real background GPS.** ✅ Code + native config complete — `locationTask.ts`
+   + `locationTracker.ts` (foreground-service location updates) and `app.json`
+   (iOS `UIBackgroundModes`, Android `FOREGROUND_SERVICE_LOCATION`). Added
+   `eas.json` for all three apps + `MOBILE_BUILDS.md`. _Only remaining step is
+   producing the EAS standalone build (needs Apple/Google accounts); it can't run
+   in Expo Go._
+6. **Merchant self-onboarding.** ✅ Built — `merchant-onboard.js`: `POST
+   /api/merchant/onboard` (name→slug, creates storefront listing, promotes the user
+   to merchant, opens the store) + profile/hours/open/menu routes; interactive
+   onboarding flow demoed. No hand-seeding needed.
+7. **Real geocoding + ETAs.** ✅ Built — `geo.js`: provider-abstracted
+   (Google/Mapbox/OSRM by env) with a **zero-key fallback** (gazetteer geocoding +
+   haversine/ETA model) so it works in dev/CI. `/api/geo/geocode` + `/api/geo/route`.
+   _Still needs `GOOGLE_MAPS_API_KEY`/`MAPBOX_TOKEN` + a self-hosted OSRM for prod
+   (deferred)._
+8. **Order edge cases.** ✅ Built — `order-policy.js` (pure, tested) + `orders-ops.js`:
+   cancellation policy by actor, **partial + full refunds** (cumulative), payment
+   retry, and out-of-stock resolution (refund-item / substitute / cancel), each
+   auto-refunding and notifying the customer.
 
 ## Tier 3 — Trust, ops & legal  ✅ _built this pass (see notes)_
 
