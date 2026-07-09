@@ -10,3 +10,7 @@ export { SpotlyClient } from './SpotlyClient'
 export * from './AuthClient'
 export * from './PaymentClient'
 export * from './PushClient'
+// Tier-4 polish: resilience & reach
+export * from './i18n'
+export * from './offline'
+export * from './a11y'

@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node dev.js",
-    "smoke": "node test/smoke.js"
+    "smoke": "node test/smoke.js",
+    "test:unit": "node --test test/units.test.js",
+    "test": "node --test test/units.test.js"
   },
   "dependencies": {
     "aedes": "^0.51.3",

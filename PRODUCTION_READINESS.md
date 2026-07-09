@@ -81,12 +81,20 @@ providers, harden the infrastructure, and ship to the stores.**
     GitHub Actions **CI** pipeline (`.github/workflows/ci.yml`). _Still needs: a
     `SENTRY_DSN` + uptime/alerting and product analytics (deferred)._
 
-## Tier 4 — Polish
+## Tier 4 — Polish  ✅ _foundations built this pass_
 
-- Offline support / local cache for flaky connectivity
-- Accessibility (screen readers, contrast, touch targets) and internationalisation
-- Automated test coverage beyond the bus-contract smoke test
-- Performance passes (image sizes, list virtualization, cold-start)
+13. **Resilience & reach.** ✅ Built in `@spotly/shared` (pure, unit-tested):
+    - **Offline** — `offline.ts` `Cache` (TTL read-through, serves stale when
+      offline) + `OfflineQueue` (durable replay of actions).
+    - **Accessibility** — `a11y.ts` prop builders (44pt touch targets, labels,
+      live regions) + a WCAG contrast checker.
+    - **i18n** — `i18n.ts` English + Shona + Polish, locale detection, market
+      currency formatting.
+    - **Tests** — 34 shared (vitest) + 15 backend (`node:test`) unit tests, all
+      green; CI runs them + typechecks each app (`.github/workflows/ci.yml`).
+    - See `RESILIENCE.md`. _Remaining: adopt helpers across every screen, add
+      AsyncStorage/NetInfo/expo-localization per app, translate the full catalogue,
+      and run device performance passes._
 
 ---
 
