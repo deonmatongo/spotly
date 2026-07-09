@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { View, ScrollView, StyleSheet, Pressable, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -6,20 +6,34 @@ import { useNavigation } from '@react-navigation/native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { spacing, cut } from '../theme'
 import { Palette, useTheme } from '../context/ThemeContext'
-import { revenueSummary, payoutHistory } from '../data/mock'
+import { PayoutRecord, payoutHistory as mockPayoutHistory } from '../data/mock'
 import AppText from '../components/AppText'
 import Tappable from '../components/Tappable'
 import useCountUp from '../hooks/useCountUp'
 import { useAuth } from '../context/AuthContext'
-import { requestPayout } from '@spotly/shared'
+import { useAnalytics } from '../context/AnalyticsContext'
+import { getApiUrl, requestPayout } from '@spotly/shared'
 
 export default function PayoutsScreen() {
   const { colors } = useTheme()
   const styles = makeStyles(colors)
   const nav = useNavigation()
-  const { user } = useAuth()
+  const { user, accessToken } = useAuth()
+  const { revenueSummary } = useAnalytics()
   const [requesting, setRequesting] = useState(false)
+  const [history, setHistory] = useState<PayoutRecord[]>(mockPayoutHistory)
+
   const pending = useCountUp(revenueSummary.pendingPayout, 700)
+
+  useEffect(() => {
+    if (!accessToken) return
+    fetch(`${getApiUrl()}/api/merchant/payouts`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (Array.isArray(data) && data.length) setHistory(data) })
+      .catch(() => {})
+  }, [accessToken])
 
   const handleRequestPayout = async () => {
     if (requesting || !user) return
@@ -75,7 +89,7 @@ export default function PayoutsScreen() {
           <AppText variant="h2" style={{ color: colors.textPrimary }}>Payout history</AppText>
         </View>
 
-        {payoutHistory.map((record, i) => (
+        {history.map((record, i) => (
           <Animated.View key={record.id} entering={FadeInDown.delay(80 + i * 55).springify().damping(16)}>
             <View style={[styles.recordRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.recordStub} />

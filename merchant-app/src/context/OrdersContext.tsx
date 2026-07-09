@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
-import { MerchantOrder, OrderStatus, seedOrders, currentStore } from '../data/mock'
+import { MerchantOrder, OrderStatus, currentStore } from '../data/mock'
 import {
   SpotlyClient, Order, DeliveryJob, canonicalToMerchant, merchantToCanonical,
   DEMO_MERCHANT_ID, DEMO_MERCHANT_NAME, MERCHANT_COORD, FALLBACK_DROPOFF, MqttStatus,
@@ -26,15 +26,6 @@ function sharedOrderToMerchant(o: Order): MerchantOrder {
     driverName: o.driverName,
     address: o.address,
   }
-}
-
-// Turn a seed order's "N min ago" / "N hr M min ago" label into an epoch so the
-// live timer works for the demo orders too.
-function agoToTs(label: string): number {
-  const hr = /(\d+)\s*hr/.exec(label)
-  const min = /(\d+)\s*min/.exec(label)
-  const mins = (hr ? parseInt(hr[1], 10) * 60 : 0) + (min ? parseInt(min[1], 10) : 0)
-  return Date.now() - mins * 60000
 }
 
 function buildJob(order: MerchantOrder): DeliveryJob {
@@ -80,16 +71,14 @@ const OrdersContext = createContext<OrdersContextType | null>(null)
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
   const { addNotification } = useNotifications()
-  const [orders, setOrders] = useState<MerchantOrder[]>(
-    () => seedOrders.map(o => ({ ...o, placedTs: o.placedTs ?? agoToTs(o.placedAt) }))
-  )
+  const [orders, setOrders] = useState<MerchantOrder[]>([])
   const [connection, setConnection] = useState<MqttStatus>('offline')
   const [incomingOrder, setIncomingOrder] = useState<MerchantOrder | null>(null)
   const clientRef = useRef<SpotlyClient | null>(null)
   // Retained orders arrive in a burst on connect; only ring for orders that
   // land after this window so we don't alert for the whole backlog.
   const alertsReady = useRef(false)
-  const seenRefs = useRef<Set<string>>(new Set(seedOrders.map(o => o.ref)))
+  const seenRefs = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     const spotly = new SpotlyClient('merchant')

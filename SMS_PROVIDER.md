@@ -25,7 +25,53 @@ Popular in Zimbabwe/East Africa, has a Zimbabwe number pool.
    await sms.send({ to: [normalised], message: `Your Spotly code: ${code}. Valid for 10 minutes.`, from: process.env.AT_SENDER_ID })
    ```
 
-## Alternative: Twilio
+## Twilio Verify (WhatsApp + SMS OTP) — recommended for production
+
+`backend/bridge/twilio-verify.js` is fully implemented and wired into api.js at
+`POST /api/auth/send-otp` and `POST /api/auth/verify-otp`.
+
+Twilio Verify manages the code lifecycle (generation, delivery, expiry, rate-limiting)
+and supports **WhatsApp as a first-class channel** — important for the Zimbabwe market where
+WhatsApp penetration far exceeds traditional SMS.
+
+**Setup steps:**
+1. Create account at https://twilio.com
+2. Console → Verify → Services → Create a new service (name it "Spotly")
+3. Copy the **Service SID** (starts with `VA`)
+4. From the Twilio Console home copy **Account SID** and **Auth Token**
+5. Install the SDK:
+   ```
+   cd backend && npm install twilio
+   ```
+6. Add to your `.env`:
+   ```
+   TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   TWILIO_AUTH_TOKEN=your_auth_token_here_KEEP_SECRET
+   TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   ```
+7. In the Verify Service settings, enable the **WhatsApp** channel and link your
+   WhatsApp Sender (use the Twilio Sandbox during development).
+
+**In development** the router skips Twilio entirely when `TWILIO_VERIFY_SERVICE_SID`
+is absent — it logs to console and returns `{ ok: true, dev: true }` so you can test
+the full auth flow locally without credentials.
+
+**API shape:**
+```
+POST /api/auth/send-otp
+Body: { phone: "+263771234567", channel: "whatsapp" }  // channel defaults to "whatsapp"
+200: { ok: true, status: "pending", channel: "whatsapp" }
+400: { error: "..." }   // invalid number, bad channel
+429: { error: "..." }   // rate-limited by Twilio
+
+POST /api/auth/verify-otp
+Body: { phone: "+263771234567", code: "847291", role: "customer", name: "Tendi" }
+200: { accessToken, refreshToken, expiresIn: 900, user: { id, phone, name, role } }
+401: { error: "Invalid or expired code." }
+400: { error: "Verification session has expired." }  // Twilio 20404
+```
+
+## Twilio SMS (classic messages — if not using Verify)
 
 Global, reliable, higher cost per SMS in Africa.
 
@@ -39,7 +85,7 @@ Global, reliable, higher cost per SMS in Africa.
    TWILIO_FROM=+1234567890
    ```
 4. Install: `npm install twilio`
-5. In `backend/bridge/auth.js`:
+5. In `backend/bridge/auth.js` (for the legacy OTP flow):
    ```javascript
    const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
    await twilio.messages.create({ body: `Your Spotly code: ${code}`, from: process.env.TWILIO_FROM, to: normalised })

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native'
+import { View, ScrollView, Pressable, StyleSheet, Linking } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
@@ -61,7 +61,7 @@ export default function SafetyHubScreen() {
 
         {/* Emergency */}
         <Animated.View entering={FadeInDown.delay(80).springify().damping(16)}>
-          <Tappable style={styles.sosBtn}>
+          <Tappable style={styles.sosBtn} onPress={() => Linking.openURL('tel:999')}>
             <Ionicons name="alert-circle" size={20} color={colors.white} />
             <AppText variant="bodyBold" style={{ color: colors.white, fontSize: 15 }}>Emergency assist · call 999</AppText>
           </Tappable>

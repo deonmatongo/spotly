@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { currentDriver, earningsSummary } from '../data/mock'
-import { requestPayout } from '@spotly/shared'
+import { requestPayout, getApiUrl } from '@spotly/shared'
 import { useAuth } from './AuthContext'
 
 interface DestinationFilter {
@@ -13,11 +13,9 @@ interface DriverContextType {
   isOnline: boolean
   setOnline: (v: boolean) => void
   toggleOnline: () => void
-  // Wallet: pending balance + instant cash-out (capped per day)
   pendingPayout: number
   cashOutsToday: number
   cashOut: () => void
-  // Only receive jobs heading toward a set address
   destination: DestinationFilter
   toggleDestination: () => void
 }
@@ -25,7 +23,7 @@ interface DriverContextType {
 const DriverContext = createContext<DriverContextType | null>(null)
 
 export function DriverProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, accessToken } = useAuth()
   const driver = {
     ...currentDriver,
     name: user?.name ?? currentDriver.name,
@@ -33,16 +31,27 @@ export function DriverProvider({ children }: { children: ReactNode }) {
     initial: (user?.name ?? currentDriver.name).charAt(0).toUpperCase(),
   }
   const [isOnline, setOnline] = useState(false)
-  const [pendingPayout, setPendingPayout] = useState(earningsSummary.pendingPayout)
+  const [pendingPayout, setPendingPayout] = useState(0)
   const [cashOutsToday, setCashOutsToday] = useState(0)
   const [destination, setDestination] = useState<DestinationFilter>({ active: false, address: 'Home · Borrowdale' })
+
+  useEffect(() => {
+    if (!user?.id || !accessToken) return
+    fetch(`${getApiUrl()}/api/drivers/${user.id}/earnings`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.grossEarnings > 0) setPendingPayout(Number(data.grossEarnings.toFixed(2)))
+      })
+      .catch(() => {})
+  }, [user?.id, accessToken])
 
   const toggleOnline = () => setOnline(v => !v)
 
   const cashOut = async () => {
     if (pendingPayout <= 0 || cashOutsToday >= earningsSummary.maxCashOutsPerDay) return
     const amount = pendingPayout
-    // Optimistic UI update — update counters immediately so the driver sees $0 balance
     setPendingPayout(0)
     setCashOutsToday(n => n + 1)
     try {

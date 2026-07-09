@@ -18,15 +18,15 @@ router.post('/token', requireAuth(), (req, res) => {
   if (!token || !token.startsWith('ExponentPushToken[')) {
     return res.status(400).json({ error: 'valid Expo push token required' })
   }
-  upsertPushToken.run({ user_id: req.user.id, token, platform: 'expo', updated_at: Date.now() })
-  console.log(`[push] registered token for ${req.user.id}`)
+  upsertPushToken.run({ user_id: req.user.sub, token, platform: 'expo', updated_at: Date.now() })
+  console.log(`[push] registered token for ${req.user.sub}`)
   res.json({ ok: true })
 })
 
 // DELETE /push/token
 router.delete('/token', requireAuth(), (req, res) => {
   const { token } = req.body
-  if (token) deletePushToken.run(req.user.id, token)
+  if (token) deletePushToken.run(req.user.sub, token)
   res.json({ ok: true })
 })
 

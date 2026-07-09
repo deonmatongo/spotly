@@ -42,7 +42,9 @@ export default function EarningsScreen() {
   const { completedJobs } = useJobs()
   const { pendingPayout, cashOutsToday, cashOut } = useDriver()
   const { user, accessToken } = useAuth()
-  const maxAmount = Math.max(...weeklyEarnings.map(d => d.amount))
+  const [liveWeeklyEarnings, setLiveWeeklyEarnings] = useState<typeof weeklyEarnings | null>(null)
+  const chartData = liveWeeklyEarnings ?? weeklyEarnings
+  const maxAmount = Math.max(...chartData.map(d => d.amount), 0.01)
   const pending = useCountUp(pendingPayout, 700)
   const canCashOut = pendingPayout > 0 && cashOutsToday < earningsSummary.maxCashOutsPerDay
 
@@ -60,6 +62,7 @@ export default function EarningsScreen() {
         if (!data) return
         if (data.grossEarnings > 0) setLiveWeekAmount(data.grossEarnings)
         if (data.deliveries > 0)    setLiveTrips(data.deliveries)
+        if (data.weeklyEarnings?.length) setLiveWeeklyEarnings(data.weeklyEarnings)
         const fares: FareBreakdown[] = (data.recentDeliveries ?? []).map((o: any) => ({
           id:          `api-${o.ref}`,
           vendorName:  o.merchantName || 'Delivery',
@@ -138,7 +141,7 @@ export default function EarningsScreen() {
         </View>
         <Animated.View entering={FadeInDown.delay(110).springify().damping(16)} style={styles.chartCard}>
           <View style={styles.chartRow}>
-            {weeklyEarnings.map((day, i) => (
+            {chartData.map((day, i) => (
               <View key={day.label} style={styles.chartCol}>
                 <GrowBar pct={day.amount / maxAmount} index={i} color={day.amount === maxAmount ? colors.primary : colors.primary + '99'} trackColor={colors.surfaceAlt} />
                 <AppText variant="label" style={{ fontSize: 9.5, marginTop: 8, color: colors.textMuted }}>{day.label}</AppText>

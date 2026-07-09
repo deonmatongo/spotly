@@ -48,7 +48,7 @@ export default function TicketConfirmationScreen() {
       await Calendar.createEventAsync(defaultCal.id, {
         title: `🎟 ${eventName}`,
         location: venue,
-        notes: `Spotly Ticket · ${orderNumber}\n${items} ticket${items !== 1 ? 's' : ''}\nEmail: ${email}`,
+        notes: `Spotly Ticket · ${orderNumber}\n${items} ticket${items !== 1 ? 's' : ''}\nRef: ${orderNumber}`,
         startDate,
         endDate,
         alarms: [{ relativeOffset: -60 }, { relativeOffset: -1440 }],
@@ -73,7 +73,7 @@ export default function TicketConfirmationScreen() {
           </View>
           <Text style={styles.successTitle}>Tickets Confirmed!</Text>
           <Text style={styles.successSub}>
-            Your tickets are saved in the app and a copy has been sent to {email}
+            Your tickets are saved in the app.
           </Text>
         </View>
 
@@ -152,7 +152,7 @@ export default function TicketConfirmationScreen() {
         <View style={styles.emailNotice}>
           <Ionicons name="mail-outline" size={16} color={colors.primary} />
           <Text style={styles.emailNoticeText}>
-            Tickets emailed to <Text style={{ fontWeight: '700' }}>{email}</Text>
+            Confirmation ref: <Text style={{ fontWeight: '700' }}>{orderNumber}</Text>
           </Text>
         </View>
 

@@ -26,10 +26,13 @@
 
 const express  = require('express')
 const cors     = require('cors')
+const http     = require('http')
 const mqtt     = require('mqtt')
 const { router: authRouter, requireAuth } = require('./auth')
+const twilioVerifyRouter = require('./twilio-verify')
 const { router: paymentsRouter } = require('./payments')
 const { router: pushRouter, sendPush } = require('./push')
+const { createWhatsAppChat } = require('./whatsapp-chat')
 
 const {
   DB_PATH, db,
@@ -47,6 +50,9 @@ const {
   insertNotification, getNotifsByUser, markNotifRead, markAllNotifsRead, deleteUserNotifs,
   insertOffer, getAllOffers,
   upsertMerchantSettings, getMerchantSettings,
+  insertReview, getReviewsByListing, getAllReviews,
+  insertPurchasedTicket, getPurchasedTicketsByUser,
+  getPayoutsByDriver,
 } = require('./db')
 const { seedCatalog, rowToListing } = require('./catalog')
 
@@ -189,14 +195,36 @@ function startApi(mqttUrl, opts = {}) {
   app.use(cors())
   app.use(express.json())
 
-  // Auth
+  // Auth — existing phone OTP flow
   app.use('/auth', authRouter)
+  // Twilio Verify WhatsApp/SMS OTP flow (new endpoints)
+  app.use('/api/auth', twilioVerifyRouter)
 
   // Payments + payouts
   app.use('/payments', paymentsRouter)
 
   // Push notifications
   app.use('/push', pushRouter)
+
+  // ── Socket.io — lazily required so the server boots without it installed ─────
+  // Real-time fan-out to WhatsApp support dashboards. If socket.io isn't present
+  // the chat REST surface still works; it just won't push live updates.
+  const server = http.createServer(app)
+  let io = null
+  try {
+    const { Server } = require('socket.io')
+    io = new Server(server, { cors: { origin: '*' } })
+    io.on('connection', socket => {
+      socket.join('support')          // every dashboard subscribes to the support room
+      socket.on('disconnect', () => {})
+    })
+    console.log('[api] socket.io ready — support dashboards will receive live updates')
+  } catch (err) {
+    console.warn('[api] socket.io not installed — WhatsApp dashboard live updates disabled. Run: npm install socket.io')
+  }
+
+  // WhatsApp support chat (webhooks + agent console)
+  app.use('/api', createWhatsAppChat(io))
 
   // Health
   app.get('/api/health', (_req, res) => {
@@ -217,7 +245,7 @@ function startApi(mqttUrl, opts = {}) {
 
   // Orders — authenticated customer's own order history
   app.get('/api/orders/mine', requireAuth(), (req, res) => {
-    const user = getUserById.get(req.user.id)
+    const user = getUserById.get(req.user.sub)
     if (!user?.phone) return res.json([])
     res.json(getByCustomerPhone.all(user.phone).map(rowToOrder))
   })
@@ -295,16 +323,33 @@ function startApi(mqttUrl, opts = {}) {
 
   // Driver earnings — derived from delivered orders assigned to this driver
   app.get('/api/drivers/:id/earnings', (req, res) => {
-    const rows   = getByDriver.all(req.params.id).map(rowToOrder)
+    const rows      = getByDriver.all(req.params.id).map(rowToOrder)
     const delivered = rows.filter(o => o.status === 'delivered')
-    // Driver payout = base ($3.50) + delivery fee per trip
     const BASE_PAYOUT = 3.5
-    const gross  = delivered.reduce((s, o) => s + BASE_PAYOUT + (o.deliveryFee || 0), 0)
+    const gross = delivered.reduce((s, o) => s + BASE_PAYOUT + (o.deliveryFee || 0), 0)
+
+    // Last 7 days per-day breakdown
+    const now = Date.now()
+    const DAY_MS = 86400000
+    const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    const weeklyEarnings = Array.from({ length: 7 }, (_, i) => {
+      const dayStart = now - (now % DAY_MS) - (6 - i) * DAY_MS
+      const dayEnd   = dayStart + DAY_MS
+      const dayOrders = delivered.filter(o => o.placedAt >= dayStart && o.placedAt < dayEnd)
+      const amount = dayOrders.reduce((s, o) => s + BASE_PAYOUT + (o.deliveryFee || 0), 0)
+      return {
+        label:  DAY_LABELS[new Date(dayStart).getDay()],
+        amount: Math.round(amount * 100) / 100,
+        trips:  dayOrders.length,
+      }
+    })
+
     res.json({
-      driverId:    req.params.id,
-      deliveries:  delivered.length,
-      allAssigned: rows.length,
-      grossEarnings: Number(gross.toFixed(2)),
+      driverId:         req.params.id,
+      deliveries:       delivered.length,
+      allAssigned:      rows.length,
+      grossEarnings:    Number(gross.toFixed(2)),
+      weeklyEarnings,
       recentDeliveries: delivered.slice(0, 50),
     })
   })
@@ -580,7 +625,106 @@ function startApi(mqttUrl, opts = {}) {
     })))
   })
 
-  app.listen(API_PORT, () => {
+  // ── Reviews ─────────────────────────────────────────────────────────────────
+
+  app.get('/api/reviews', (req, res) => {
+    const { listingId } = req.query
+    const rows = listingId
+      ? getReviewsByListing.all(Number(listingId))
+      : getAllReviews.all()
+    res.json(rows.map(r => ({
+      id: r.id, listingId: r.listing_id, user: r.user_name,
+      rating: r.rating, text: r.text, verified: !!r.verified,
+      date: new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+    })))
+  })
+
+  app.post('/api/reviews', requireAuth(), (req, res) => {
+    const { listingId, rating, text } = req.body
+    if (!listingId || !rating) return res.status(400).json({ error: 'listingId and rating required' })
+    const user = getUserById.get(req.user.sub)
+    const result = insertReview.run({
+      listing_id: Number(listingId),
+      user_id: req.user.sub,
+      user_name: user?.name ?? 'Guest',
+      rating: Number(rating),
+      text: text ?? '',
+      created_at: Date.now(),
+    })
+    res.status(201).json({
+      id: result.lastInsertRowid,
+      listingId: Number(listingId),
+      user: user?.name ?? 'Guest',
+      rating: Number(rating),
+      text: text ?? '',
+      verified: true,
+      date: 'Just now',
+    })
+  })
+
+  // ── Purchased tickets (customer) ─────────────────────────────────────────────
+
+  app.get('/api/tickets/mine', requireAuth(), (req, res) => {
+    res.json(getPurchasedTicketsByUser.all(req.user.sub).map(r => ({
+      id: r.id, eventId: r.event_id, eventName: r.event_name, eventImage: r.event_image,
+      eventDate: r.event_date, eventTime: r.event_time, venue: r.venue,
+      tierName: r.tier_name, tierColor: r.tier_color, quantity: r.quantity,
+      totalPrice: r.total_price, confirmationCode: r.confirmation_code,
+      email: r.email, purchasedAt: r.purchased_at, status: r.status,
+    })))
+  })
+
+  app.post('/api/tickets/mine', requireAuth(), (req, res) => {
+    const t = req.body
+    if (!t?.id) return res.status(400).json({ error: 'id required' })
+    insertPurchasedTicket.run({
+      id: t.id, user_id: req.user.sub,
+      event_id: t.eventId ?? 0, event_name: t.eventName ?? '',
+      event_image: t.eventImage ?? '', event_date: t.eventDate ?? '',
+      event_time: t.eventTime ?? '', venue: t.venue ?? '',
+      tier_name: t.tierName ?? '', tier_color: t.tierColor ?? '',
+      quantity: t.quantity ?? 1, total_price: t.totalPrice ?? 0,
+      confirmation_code: t.confirmationCode ?? '', email: t.email ?? '',
+      purchased_at: t.purchasedAt ?? '', status: t.status ?? 'upcoming',
+    })
+    res.status(201).json({ ok: true })
+  })
+
+  // ── Merchant payout history ──────────────────────────────────────────────────
+
+  // Returns computed weekly payout records derived from completed order history.
+  app.get('/api/merchant/payouts', requireAuth(), (req, res) => {
+    const merchantId = req.query.merchantId || 'amanzi-restaurant'
+    const WEEK_MS = 7 * 86400000
+    const now = Date.now()
+    // Compute last 8 weeks
+    const weeks = Array.from({ length: 8 }, (_, i) => {
+      const weekEnd   = now - i * WEEK_MS
+      const weekStart = weekEnd - WEEK_MS
+      return { weekStart, weekEnd, index: i }
+    }).slice(1) // skip current (partial) week
+    const records = weeks.map(({ weekStart, weekEnd, index }) => {
+      const rows = db.prepare(
+        'SELECT total FROM orders WHERE merchant_id = ? AND status = ? AND placed_at >= ? AND placed_at < ?'
+      ).all(merchantId, 'done', weekStart, weekEnd)
+      if (!rows.length) return null
+      const gross = rows.reduce((s, r) => s + r.total, 0)
+      const net   = Math.round(gross * 0.88 * 100) / 100
+      const weekEndDate = new Date(weekEnd)
+      const weekStartDate = new Date(weekStart)
+      const fmt = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+      return {
+        id: `mpayout-${index}`,
+        amount: net,
+        date: `Mon, ${fmt(weekEndDate)}`,
+        period: `${fmt(weekStartDate)}–${fmt(weekEndDate)}`,
+        status: 'paid',
+      }
+    }).filter(Boolean)
+    res.json(records)
+  })
+
+  server.listen(API_PORT, () => {
     console.log(`[api] REST on :${API_PORT} · DB: ${DB_PATH}`)
     seedCatalog(db)
     seedOffers(db)

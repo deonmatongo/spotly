@@ -7,3 +7,8 @@ dist/
 .expo/
 ios/
 android/
+
+# SQLite runtime database (regenerated on boot)
+spotly.db
+spotly.db-shm
+spotly.db-wal

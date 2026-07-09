@@ -127,6 +127,41 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_notifs_user ON notifications(user_id);
 
+  -- User-submitted listing reviews.
+  CREATE TABLE IF NOT EXISTS reviews (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id INTEGER NOT NULL,
+    user_id    TEXT    NOT NULL,
+    user_name  TEXT    DEFAULT '',
+    rating     INTEGER NOT NULL DEFAULT 5,
+    text       TEXT    DEFAULT '',
+    verified   INTEGER DEFAULT 1,
+    created_at INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_reviews_listing ON reviews(listing_id);
+  CREATE INDEX IF NOT EXISTS idx_reviews_user    ON reviews(user_id);
+
+  -- Tickets purchased by customers (separate from the ticket validation table).
+  CREATE TABLE IF NOT EXISTS purchased_tickets (
+    id                TEXT    PRIMARY KEY,
+    user_id           TEXT    NOT NULL,
+    event_id          INTEGER DEFAULT 0,
+    event_name        TEXT    DEFAULT '',
+    event_image       TEXT    DEFAULT '',
+    event_date        TEXT    DEFAULT '',
+    event_time        TEXT    DEFAULT '',
+    venue             TEXT    DEFAULT '',
+    tier_name         TEXT    DEFAULT '',
+    tier_color        TEXT    DEFAULT '',
+    quantity          INTEGER DEFAULT 1,
+    total_price       REAL    DEFAULT 0,
+    confirmation_code TEXT    DEFAULT '',
+    email             TEXT    DEFAULT '',
+    purchased_at      TEXT    DEFAULT '',
+    status            TEXT    DEFAULT 'upcoming'
+  );
+  CREATE INDEX IF NOT EXISTS idx_pt_user ON purchased_tickets(user_id);
+
   -- Promo/offer catalog — seeded on startup, admin-editable later.
   CREATE TABLE IF NOT EXISTS offers (
     id            TEXT PRIMARY KEY,
@@ -143,6 +178,39 @@ db.exec(`
     icon          TEXT DEFAULT '',
     active        INTEGER DEFAULT 1
   );
+
+  -- ── WhatsApp support: one row per customer thread ──────────────────────────
+  -- last_customer_msg_at is the anchor for Meta's rolling 24-hour session window;
+  -- last_message_at (any direction) drives the sidebar's "most recent" ordering.
+  CREATE TABLE IF NOT EXISTS conversations (
+    id                   TEXT PRIMARY KEY,
+    phone                TEXT NOT NULL UNIQUE,   -- customer WhatsApp number, E.164
+    name                 TEXT    DEFAULT '',
+    status               TEXT    DEFAULT 'open', -- open | pending | closed
+    assigned_agent_id    TEXT    DEFAULT '',
+    last_message_at      INTEGER DEFAULT 0,
+    last_message_preview TEXT    DEFAULT '',
+    last_customer_msg_at INTEGER DEFAULT 0,      -- anchors the 24h template rule
+    unread               INTEGER DEFAULT 0,
+    created_at           INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_convos_status ON conversations(status);
+  CREATE INDEX IF NOT EXISTS idx_convos_recent ON conversations(last_message_at);
+
+  -- ── WhatsApp support: append-only message log ──────────────────────────────
+  CREATE TABLE IF NOT EXISTS messages (
+    id              TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    direction       TEXT    DEFAULT 'inbound',  -- inbound (customer) | outbound (agent)
+    sender          TEXT    DEFAULT 'customer', -- 'customer' | agent id | 'system'
+    body            TEXT    DEFAULT '',
+    media_url       TEXT    DEFAULT '',
+    status          TEXT    DEFAULT 'received',  -- received | queued | sent | delivered | read | failed
+    provider_sid    TEXT    DEFAULT '',          -- Twilio Message SID for status callbacks
+    created_at      INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_messages_convo ON messages(conversation_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_messages_sid   ON messages(provider_sid);
 `)
 
 // ── Prepared statements ──────────────────────────────────────────────────────
@@ -417,6 +485,60 @@ const insertOffer          = db.prepare(`
 `)
 const getAllOffers          = db.prepare('SELECT * FROM offers WHERE active = 1')
 
+// Reviews
+const insertReview        = db.prepare(`
+  INSERT INTO reviews (listing_id, user_id, user_name, rating, text, verified, created_at)
+  VALUES (@listing_id, @user_id, @user_name, @rating, @text, 1, @created_at)
+`)
+const getReviewsByListing = db.prepare('SELECT * FROM reviews WHERE listing_id = ? ORDER BY created_at DESC')
+const getAllReviews        = db.prepare('SELECT * FROM reviews ORDER BY created_at DESC LIMIT 500')
+
+// Purchased tickets
+const insertPurchasedTicket  = db.prepare(`
+  INSERT OR IGNORE INTO purchased_tickets
+    (id, user_id, event_id, event_name, event_image, event_date, event_time,
+     venue, tier_name, tier_color, quantity, total_price, confirmation_code, email, purchased_at, status)
+  VALUES
+    (@id, @user_id, @event_id, @event_name, @event_image, @event_date, @event_time,
+     @venue, @tier_name, @tier_color, @quantity, @total_price, @confirmation_code, @email, @purchased_at, @status)
+`)
+const getPurchasedTicketsByUser = db.prepare('SELECT * FROM purchased_tickets WHERE user_id = ? ORDER BY rowid DESC')
+
+// ── WhatsApp support conversations ────────────────────────────────────────────
+const insertConversation = db.prepare(`
+  INSERT INTO conversations (id, phone, name, status, assigned_agent_id,
+    last_message_at, last_message_preview, last_customer_msg_at, unread, created_at)
+  VALUES (@id, @phone, @name, @status, @assigned_agent_id,
+    @last_message_at, @last_message_preview, @last_customer_msg_at, @unread, @created_at)
+`)
+const getConversationByPhone = db.prepare('SELECT * FROM conversations WHERE phone = ?')
+const getConversationById     = db.prepare('SELECT * FROM conversations WHERE id = ?')
+const listConversations       = db.prepare('SELECT * FROM conversations ORDER BY last_message_at DESC LIMIT 500')
+
+// Touch on any new message. `is_customer` (1/0) decides whether we also bump the
+// 24h-window anchor and the unread counter.
+const touchConversation = db.prepare(`
+  UPDATE conversations SET
+    name                 = CASE WHEN @name != '' THEN @name ELSE name END,
+    last_message_at      = @ts,
+    last_message_preview = @preview,
+    last_customer_msg_at = CASE WHEN @is_customer = 1 THEN @ts ELSE last_customer_msg_at END,
+    unread               = CASE WHEN @is_customer = 1 THEN unread + 1 ELSE unread END,
+    status               = CASE WHEN @is_customer = 1 AND status = 'closed' THEN 'open' ELSE status END
+  WHERE id = @id
+`)
+const setConversationStatus = db.prepare('UPDATE conversations SET status = @status WHERE id = @id')
+const assignConversation    = db.prepare('UPDATE conversations SET assigned_agent_id = @agent_id WHERE id = @id')
+const clearConversationUnread = db.prepare('UPDATE conversations SET unread = 0 WHERE id = ?')
+
+// ── WhatsApp support messages ─────────────────────────────────────────────────
+const insertMessage = db.prepare(`
+  INSERT INTO messages (id, conversation_id, direction, sender, body, media_url, status, provider_sid, created_at)
+  VALUES (@id, @conversation_id, @direction, @sender, @body, @media_url, @status, @provider_sid, @created_at)
+`)
+const getMessagesByConversation = db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT 500')
+const updateMessageStatusBySid  = db.prepare('UPDATE messages SET status = @status WHERE provider_sid = @provider_sid')
+
 // ── Conversion helpers ───────────────────────────────────────────────────────
 
 function rowToOrder(row) {
@@ -499,4 +621,13 @@ module.exports = {
   insertNotification, getNotifsByUser, markNotifRead, markAllNotifsRead, deleteUserNotifs,
   // offers
   insertOffer, getAllOffers,
+  // reviews
+  insertReview, getReviewsByListing, getAllReviews,
+  // purchased tickets
+  insertPurchasedTicket, getPurchasedTicketsByUser,
+  // whatsapp support — conversations
+  insertConversation, getConversationByPhone, getConversationById, listConversations,
+  touchConversation, setConversationStatus, assignConversation, clearConversationUnread,
+  // whatsapp support — messages
+  insertMessage, getMessagesByConversation, updateMessageStatusBySid,
 }

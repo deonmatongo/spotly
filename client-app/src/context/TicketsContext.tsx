@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { getApiUrl } from '@spotly/shared'
+import { useAuth } from './AuthContext'
 
 export interface PurchasedTicket {
   id: string
@@ -26,10 +28,30 @@ interface TicketsContextType {
 const TicketsContext = createContext<TicketsContextType | null>(null)
 
 export function TicketsProvider({ children }: { children: ReactNode }) {
+  const { user, accessToken } = useAuth()
   const [tickets, setTickets] = useState<PurchasedTicket[]>([])
+
+  useEffect(() => {
+    if (!user || !accessToken) return
+    fetch(`${getApiUrl()}/api/tickets/mine`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (Array.isArray(data) && data.length) setTickets(data)
+      })
+      .catch(() => {})
+  }, [user?.id, accessToken])
 
   const addTicket = (ticket: PurchasedTicket) => {
     setTickets(prev => [ticket, ...prev])
+    if (accessToken) {
+      fetch(`${getApiUrl()}/api/tickets/mine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(ticket),
+      }).catch(() => {})
+    }
   }
 
   return (

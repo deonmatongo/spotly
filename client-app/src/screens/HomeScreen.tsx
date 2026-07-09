@@ -8,7 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { spacing, radius, shadow, fonts, cut } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
-import { currentUser } from '../data/mock'
+import { useAuth } from '../context/AuthContext'
 import { useListings } from '../context/ListingsContext'
 import VenueCard from '../components/VenueCard'
 import Tappable from '../components/Tappable'
@@ -16,8 +16,11 @@ import LiveOrderBanner from '../components/LiveOrderBanner'
 import useCountUp from '../hooks/useCountUp'
 import { RootStackParamList } from '../navigation'
 import { Listing } from '../data/mock'
-// Listing type re-exported here for use in goToDetail/goToBooking types
 import { useNotifications } from '../context/NotificationsContext'
+
+const MOCK_POINTS    = 1240
+const MOCK_TIER      = 'Gold'
+const MOCK_NEXT_TIER = 2000
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -56,6 +59,7 @@ export default function HomeScreen() {
   const { colors, isDark } = useTheme()
   const styles = makeStyles(colors)
   const nav = useNavigation<Nav>()
+  const { user } = useAuth()
   const { unreadCount } = useNotifications()
   const { listings } = useListings()
   const popular = listings.filter(l => l.popular)
@@ -63,11 +67,12 @@ export default function HomeScreen() {
   const experiences = listings.filter(l => l.category === 'experiences')
   const foodSpots = listings.filter(l => l.category === 'food')
 
+  const firstName = user?.name?.split(' ')[0] ?? 'there'
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const tierProgress = Math.min(currentUser.points / currentUser.nextTierPoints, 1)
-  const ptsToNext = Math.max(currentUser.nextTierPoints - currentUser.points, 0)
-  const animatedPts = useCountUp(currentUser.points, 900)
+  const tierProgress = Math.min(MOCK_POINTS / MOCK_NEXT_TIER, 1)
+  const ptsToNext = Math.max(MOCK_NEXT_TIER - MOCK_POINTS, 0)
+  const animatedPts = useCountUp(MOCK_POINTS, 900)
 
   const goToDetail = (l: Listing) => nav.navigate('Detail', { listing: l })
   const goToBooking = (l: Listing, slot: string) => nav.navigate('Booking', { listing: l, slot })
@@ -94,7 +99,7 @@ export default function HomeScreen() {
             <View style={styles.heroTop}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.greeting}>{greeting},</Text>
-                <Text style={styles.headline}>{currentUser.firstName} 👋</Text>
+                <Text style={styles.headline}>{firstName} 👋</Text>
               </View>
               <Pressable style={styles.notifBtn} onPress={() => (nav as any).navigate('Notifications')}>
                 <Ionicons name="notifications-outline" size={22} color={colors.white} />
@@ -147,7 +152,7 @@ export default function HomeScreen() {
               <View style={styles.loyaltyTop}>
                 <View style={styles.loyaltyBadge}>
                   <Ionicons name="sparkles" size={14} color={colors.white} />
-                  <Text style={styles.loyaltyTier}>{currentUser.tier} member</Text>
+                  <Text style={styles.loyaltyTier}>{MOCK_TIER} member</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
               </View>

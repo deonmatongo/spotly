@@ -5,7 +5,7 @@ const PAYMENT_METHODS = [
   { id: 'visa',       logo: 'VISA',     bg: '#1A1F71', fg: '#FFFFFF', label: 'Visa •••• 4242',          sub: 'Expires 08/27' },
   { id: 'mastercard', logo: 'MC',       bg: '#EB001B', fg: '#FFFFFF', label: 'Mastercard •••• 8891',     sub: 'Expires 03/28' },
   { id: 'apple',      logo: '',        bg: '#000000', fg: '#FFFFFF', label: 'Apple Pay',                sub: 'Touch ID required' },
-  { id: 'ecocash',    logo: 'eco',      bg: '#E31837', fg: '#FFFFFF', label: 'EcoCash',                  sub: '+263 77 234 5678' },
+  { id: 'ecocash',    logo: 'eco',      bg: '#E31837', fg: '#FFFFFF', label: 'EcoCash',                  sub: '' },
   { id: 'points',     logo: '★',        bg: '#15803D', fg: '#FFFFFF', label: 'Spotly Points',            sub: '1,240 pts available' },
 ]
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -334,7 +334,7 @@ export default function CheckoutScreen() {
               </View>
               <View style={styles.payInfo}>
                 <Text style={styles.payLabel}>{m.label}</Text>
-                <Text style={styles.paySub}>{m.sub}</Text>
+                <Text style={styles.paySub}>{m.id === 'ecocash' ? (user?.phone ?? m.sub) : m.sub}</Text>
               </View>
               <View style={[styles.radio, payMethod === m.id && styles.radioActive]}>
                 {payMethod === m.id && <View style={styles.radioDot} />}
