@@ -1,66 +1,109 @@
 # Spotly — Production Readiness
 
-_What's left for this product to be fully used by real people._
+_What's left for the website and apps to be safely used by real people._
 
-**Status today:** a polished, fully-wired **demo**. Everything a user *sees and
-touches* is done; almost everything *behind the glass* is still mock. The
-customer, driver, and merchant apps plus the website dashboards are all
-connected end-to-end over the real-time MQTT event bus (`@spotly/shared`), and
-the `SpotlyClient` SDK was deliberately shaped so a real backend can slot in
-behind the same method signatures.
+**Status today:** the product has crossed from "polished demo" into a **working
+system with a real backend**. A Node.js/Express service now persists everything
+to SQLite (schema is Postgres-compatible), issues real JWT sessions, and is the
+source of truth the MQTT event bus reflects. Auth, payments, payouts, push,
+dispatch, ticket scanning, and WhatsApp support are all **code-complete** — most
+are running on **dev stubs** that need real provider credentials and hardening
+before go-live.
 
----
-
-## ✅ Done
-- All four surfaces (customer / driver / merchant apps + website Business & Driver dashboards) with real, considered UX.
-- Real-time event bus connecting them end-to-end: order → merchant → driver → live tracking → delivery.
-- `SpotlyClient` abstraction built so a real backend can replace the transport without touching screens.
+The gap now is not "build the backend" — it's **flip the stubs to real
+providers, harden the infrastructure, and ship to the stores.**
 
 ---
 
-## Tier 1 — Hard blockers (can't onboard a single real user without these)
+## ✅ Done since the last review
 
-1. **Real backend + database.** Everything lives in in-memory React contexts + `mock.ts`; orders, tickets, bookings, and menus vanish on restart. The bus is a *transport*, not a source of truth — need a service (API + Postgres) that persists state and is the authority the bus reflects. This is the "backend later" that's now the critical path.
-2. **Real accounts & auth.** Credentials are hardcoded (`tatendamoyo/123456`, `amanzi@spotly.app/business`). Need real sign-up/login (phone + OTP fits Zimbabwe), sessions/JWT, roles, password reset.
-3. **Payments + payouts.** 100% UI-only. Need a real PSP — EcoCash / OneMoney / Zimswitch / cards — plus capture, refunds, a ledger, and actual merchant/driver payouts (the "Request payout" / "Cash out" buttons do nothing). Heaviest lift, technically and legally.
-4. **Production broker + config.** Currently the dev Aedes broker with open auth, and `localhost` / `192.168.0.193` hardcoded across every `tracking.ts` + shared config. Need a hosted broker with TLS (`wss://`), enforced ACLs, and env-based config (no hardcoded hosts/IPs).
-5. **App-store distribution.** Apps run in Expo Go only. Need EAS builds, Apple/Google developer accounts, store listings + review (background-location justification), real icons/splash (currently reused), and OTA updates.
+- **Real backend + database** — Express REST API + SQLite persistence (orders, menus, bookings, tickets, reviews, favorites, notifications, payments, payouts, users, sessions). Survives restarts; the bus reads/writes through it.
+- **Real accounts & auth** — phone OTP + JWT access/refresh sessions (`auth.js`), plus a Twilio Verify WhatsApp/SMS flow (`twilio-verify.js`). Roles wired across all three apps.
+- **Payments + payouts** — full charge / refund / payout API + ledger tables (`payments.js`). Auto-completes in dev; ready for a real PSP.
+- **Push notifications** — `expo-notifications` + a push service and token registry (`push.js`, `notify.ts` in all three apps).
+- **Dispatch / matching engine** — presence-aware timed job offers, auto-match to a roster, reassignment, no-driver handling (`dispatch.js`).
+- **Ticket redemption** — merchant scan-and-validate screen (`ScanTicketsScreen.tsx`).
+- **Live menus** — merchant menu edits publish live to customers (`MenuContext`, `useLiveMenu`).
+- **WhatsApp support desk** — inbound webhook + agent dashboard + 24h session rule (`whatsapp-chat.js`, `support-dashboard/`).
+
+---
+
+## Tier 1 — Hard blockers (can't take real money / real users without these)
+
+1. **Provider credentials & go-live switch.** The code is built but running on dev
+   stubs that auto-complete. Needs: a real **payment provider** (Paynow / EcoCash /
+   OneMoney / Zimswitch / cards) wired into `payments.js`; a real **SMS/WhatsApp
+   sender** (Twilio) for OTP + support; and `NODE_ENV=production` so stubs stop
+   short-circuiting. See `PAYMENT_PROVIDER.md`, `SMS_PROVIDER.md`, `WHATSAPP_SUPPORT.md`.
+2. **Production broker + infrastructure + secrets.** Still the dev Aedes broker with
+   open auth, and `localhost` / `192.168.x.x` hardcoded in `tracking.ts` + shared
+   config. Needs a **hosted MQTT broker with TLS (`wss://`)** and enforced ACLs,
+   **env-based config** (no hardcoded hosts), a strong `JWT_SECRET`, and a
+   **managed Postgres** (swap the SQLite adapter — schema already compatible).
+3. **App-store distribution.** Apps run in Expo Go. Needs **EAS builds**, Apple +
+   Google developer accounts, store listings and review (background-location
+   justification), real icons/splash, and OTA updates.
+4. **Payments hardening.** Beyond wiring the PSP: capture/refund reconciliation
+   against the provider, webhook signature verification, an auditable ledger, and
+   idempotency on charge/refund. Heaviest lift, technically and legally.
 
 ## Tier 2 — Core product completeness
 
-6. **Push notifications.** In-app only today (`NotificationsContext`). A delivery app is unusable without real push — drivers must get job offers and customers order updates while backgrounded. Needs `expo-notifications` + a push service.
-7. **Real background GPS.** The driver publishes real GPS via `expo-location`, but background tracking needs a dev/standalone build (not Expo Go) with the iOS background-location entitlement + Android foreground service. (The simulated-GPS mode is demo-only.)
-8. **Merchant onboarding + real menus/inventory**, availability, and pricing — replacing the mock listings.
-9. **Dispatch/matching engine.** Job assignment is manual/mock. Real ops need automatic driver-matching, no-driver-available handling, reassignment, timeouts, surge.
-10. **Ticket redemption.** QR tickets generate, but nothing *scans/validates* them at the door — needs a scanner/redemption side.
-11. **Real geocoding + ETAs.** Addresses are hardcoded coords; ETA uses the public OSRM demo server (rate-limited). Need geocoding + a production routing provider. Android Maps also needs a Google Maps API key.
+5. **Real background GPS.** The driver publishes real GPS, but background tracking
+   needs a standalone build (not Expo Go) with the iOS background-location
+   entitlement + an Android foreground service. (Simulated-GPS mode is demo-only.)
+6. **Merchant self-onboarding.** Live menus exist, but there's no self-serve
+   signup → verify → menu/inventory/pricing/hours flow to add a new merchant
+   without hand-seeding.
+7. **Real geocoding + ETAs.** Addresses use hardcoded coords and the public OSRM
+   demo server (rate-limited). Needs a geocoding provider + a production routing
+   provider, plus a Google Maps API key for Android maps.
+8. **Order edge cases.** Cancellation, partial refunds, failed-payment retries,
+   and out-of-stock mid-order are only partially handled end-to-end.
 
 ## Tier 3 — Trust, ops & legal
 
-12. **Admin / ops console** — no surface today to manage users, resolve disputes, refund, or monitor orders.
-13. **Legal** — terms, privacy policy, data protection, driver background checks (currently mock), insurance, age/ID checks for event & alcohol sales.
-14. **Monitoring, error tracking (Sentry), analytics, backups, CI/CD.**
+9.  **Admin / ops console.** No surface yet to manage users, resolve disputes,
+    issue refunds, suspend accounts, or monitor live orders.
+10. **Legal & compliance.** Terms, privacy policy, data-protection stance, real
+    driver background checks (currently mock), insurance, and age/ID checks for
+    event & alcohol sales.
+11. **Security hardening.** Rate limiting, input validation on every endpoint,
+    webhook signature verification (done for WhatsApp; needed for payments),
+    secrets management, and automated DB backups.
+12. **Monitoring & delivery.** Error tracking (Sentry), uptime/alerting,
+    product analytics, log aggregation, and CI/CD.
 
 ## Tier 4 — Polish
 
-- Order edge cases (cancel/refund flows are only partial)
-- Local persistence / offline support
-- Accessibility, internationalisation
-- Persisting ratings/reviews for real
-- Automated tests beyond the bus contract
+- Offline support / local cache for flaky connectivity
+- Accessibility (screen readers, contrast, touch targets) and internationalisation
+- Automated test coverage beyond the bus-contract smoke test
+- Performance passes (image sizes, list virtualization, cold-start)
 
 ---
 
-## Highest-leverage next step
+## Website — production checklist
 
-**Tier 1 #1 — the real backend + database.** Auth, payments, persistence, and
-dispatch all hang off it, and the `SpotlyClient` interface is already shaped to
-accept it. Recommended sequence:
+The marketing site + Business/Driver dashboards (`website/`) share the same
+backend. Before launch the site specifically needs: **HTTPS + a real domain**,
+wiring its dashboards to the **authenticated API** (not mock data), **SEO/meta +
+Open Graph**, **cookie/privacy + legal pages**, **analytics**, and a **CDN** for
+assets.
 
-1. Backend + DB (source of truth; bus reads/writes through it)
-2. Auth & accounts
-3. Payments & payouts
-4. Production broker/infra + app-store builds
-5. Push notifications & background GPS
-6. Dispatch engine, merchant onboarding, ticket redemption
-7. Admin console, legal, monitoring
+---
+
+## Recommended go-live sequence
+
+1. **Managed Postgres + hosted broker (TLS/ACLs) + env-based config & secrets** — the foundation everything else assumes.
+2. **Wire the real payment provider + reconciliation/webhooks** — the revenue path and biggest risk.
+3. **Real SMS/WhatsApp sender for OTP + support** — gates sign-up.
+4. **EAS store builds + background-GPS entitlements** — get installable apps out.
+5. **Security hardening + monitoring/backups** — before real traffic.
+6. **Admin console + legal/compliance** — required to operate and resolve disputes.
+7. **Merchant self-onboarding, geocoding/routing, edge cases** — scale the catalogue and ops.
+8. **Polish: offline, accessibility, i18n, tests.**
+
+_The `SpotlyClient` SDK and the Postgres-compatible schema were shaped so each of
+these slots in behind existing interfaces — these are integration and hardening
+tasks, not rewrites._
