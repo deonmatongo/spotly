@@ -4,12 +4,12 @@
 //   POST /api/auth/send-otp    { phone, channel? }  → request a code via WhatsApp (default) or SMS
 //   POST /api/auth/verify-otp  { phone, code, role?, name? } → check code → issue JWT + refresh
 //
-// Required env vars (see SMS_PROVIDER.md §Twilio Verify):
+// Required env vars (see docs/SMS_PROVIDER.md §Twilio Verify):
 //   TWILIO_ACCOUNT_SID
 //   TWILIO_AUTH_TOKEN
 //   TWILIO_VERIFY_SERVICE_SID
 //
-// Install: npm install twilio   (already documented in SMS_PROVIDER.md)
+// Install: npm install twilio   (already documented in docs/SMS_PROVIDER.md)
 
 const express = require('express')
 const crypto  = require('crypto')

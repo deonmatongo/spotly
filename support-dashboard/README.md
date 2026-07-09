@@ -6,7 +6,7 @@ Real-time three-column WhatsApp support workspace (React + Tailwind + Socket.io)
 - `src/useSupport.ts` — data + Socket.io realtime hook
 - `src/types.ts` — wire types shared with the backend
 
-These are drop-in files. See **[../WHATSAPP_SUPPORT.md](../WHATSAPP_SUPPORT.md)**
+These are drop-in files. See **[../docs/WHATSAPP_SUPPORT.md](../docs/WHATSAPP_SUPPORT.md)**
 for full setup: scaffolding a Vite + Tailwind app, env vars, Twilio webhook
 configuration, and the backend it talks to (`backend/bridge/whatsapp-chat.js`).
 

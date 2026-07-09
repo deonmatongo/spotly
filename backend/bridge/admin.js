@@ -154,7 +154,7 @@ function createAdmin({ publish } = {}) {
     audit(req, 'order.refund', ref, { paymentId: payment.id, amount: payment.amount, reason: req.valid.reason || '' })
     res.json({ ok: true, ref, refundedAmount: payment.amount })
     // NB: in production, updatePaymentStatus should follow a confirmed provider
-    // refund callback — see PAYMENT_PROVIDER.md. Here dev auto-confirms.
+    // refund callback — see docs/PAYMENT_PROVIDER.md. Here dev auto-confirms.
   })
 
   // ── Disputes ────────────────────────────────────────────────────────────────

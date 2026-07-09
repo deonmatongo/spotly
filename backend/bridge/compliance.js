@@ -9,7 +9,7 @@
 //
 // Self-declaration is the baseline. For high-risk sales, escalate id_status to a
 // real document check (Onfido / Veriff / Smile ID) via the admin console — see
-// COMPLIANCE.md. Driver background_check is set the same way after a vetting run.
+// docs/COMPLIANCE.md. Driver background_check is set the same way after a vetting run.
 
 const express = require('express')
 const { requireAuth } = require('./auth')

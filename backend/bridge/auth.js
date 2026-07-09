@@ -4,7 +4,7 @@
 //   1. POST /auth/otp/request  { phone }
 //      → generates a 6-digit code, stores it (10 min TTL)
 //      → dev mode: returns { dev_otp } so you can test without SMS
-//      → prod: send via Africa's Talking (see SMS_PROVIDER.md)
+//      → prod: send via Africa's Talking (see docs/SMS_PROVIDER.md)
 //   2. POST /auth/otp/verify   { phone, code, role?, name? }
 //      → validates code, creates/fetches user, issues JWT + refresh token
 //   3. POST /auth/token/refresh { refreshToken }
@@ -94,7 +94,7 @@ router.post('/otp/request', (req, res) => {
     return res.json({ ok: true, dev_otp: code })
   }
 
-  // Production: integrate SMS here (see SMS_PROVIDER.md)
+  // Production: integrate SMS here (see docs/SMS_PROVIDER.md)
   res.json({ ok: true })
 })
 

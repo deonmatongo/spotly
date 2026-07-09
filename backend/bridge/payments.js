@@ -9,7 +9,7 @@
 //
 // Dev mode (NODE_ENV !== 'production'):
 //   All payments auto-complete, all payouts auto-process.
-//   See PAYMENT_PROVIDER.md for plugging in Paynow / EcoCash / Stripe.
+//   See docs/PAYMENT_PROVIDER.md for plugging in Paynow / EcoCash / Stripe.
 
 const express = require('express')
 const crypto  = require('crypto')
@@ -74,7 +74,7 @@ router.post('/charge', (req, res) => {
     return res.json({ ok: true, paymentId: id, status: 'completed', devNote: `${method} auto-confirmed in dev` })
   }
 
-  // Production: integrate payment provider here. See PAYMENT_PROVIDER.md.
+  // Production: integrate payment provider here. See docs/PAYMENT_PROVIDER.md.
   // Paynow flow returns a redirect_url; EcoCash B2C returns a poll_url.
   res.json({ ok: true, paymentId: id, status: 'pending' })
 })
@@ -93,7 +93,7 @@ router.post('/:id/refund', (req, res) => {
   if (row.status !== 'completed') return res.status(400).json({ error: 'Only completed payments can be refunded' })
   updatePaymentStatus.run({ status: 'refunded', provider_ref: null, updated_at: Date.now(), id: row.id })
   if (!IS_DEV) {
-    // Production: initiate provider refund here. See PAYMENT_PROVIDER.md.
+    // Production: initiate provider refund here. See docs/PAYMENT_PROVIDER.md.
     console.log(`[payments] TODO: initiate provider refund for ${row.id}`)
   }
   res.json({ ok: true })
@@ -124,7 +124,7 @@ router.post('/drivers/:id/payouts/request', (req, res) => {
     return res.json({ ok: true, payoutId: id, status: 'paid', devNote: `${method} payout auto-processed in dev` })
   }
 
-  // Production: initiate EcoCash B2C or ZIPIT transfer here. See PAYMENT_PROVIDER.md.
+  // Production: initiate EcoCash B2C or ZIPIT transfer here. See docs/PAYMENT_PROVIDER.md.
   res.json({ ok: true, payoutId: id, status: 'pending' })
 })
 

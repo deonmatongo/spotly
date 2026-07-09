@@ -19,7 +19,7 @@
 //   message_status         { id, provider_sid, status } delivery update
 //   conversation_updated   { conversation }            status/assignment change
 //
-// Required env vars (see WHATSAPP_SUPPORT.md):
+// Required env vars (see docs/WHATSAPP_SUPPORT.md):
 //   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM (e.g. whatsapp:+14155238886)
 // Optional:
 //   SUPPORT_API_KEY          protect the /api/support/* routes (skipped if unset)
