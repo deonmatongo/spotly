@@ -19,7 +19,8 @@ import { RootStackParamList } from '../navigation'
 import { useCart } from '../context/CartContext'
 import { useTickets } from '../context/TicketsContext'
 import { useNotifications } from '../context/NotificationsContext'
-import { currentUser, offers, Offer } from '../data/mock'
+import { offers, Offer } from '../data/mock'
+import { useAuth } from '../context/AuthContext'
 import { orderBus } from '../services/orderBus'
 import { useActiveOrder } from '../context/ActiveOrderContext'
 import {
@@ -49,9 +50,10 @@ export default function CheckoutScreen() {
   const { addTicket } = useTickets()
   const { addNotification } = useNotifications()
   const { startTracking } = useActiveOrder()
+  const { user } = useAuth()
   const [mode, setMode] = useState<'delivery' | 'pickup'>('delivery')
   const [payMethod, setPayMethod] = useState('card')
-  const [ticketEmail, setTicketEmail] = useState(currentUser.email)
+  const [ticketEmail, setTicketEmail] = useState(user?.phone ?? '')
   const [promoInput, setPromoInput] = useState('')
   const [appliedOffer, setAppliedOffer] = useState<Offer | null>(null)
   const [promoError, setPromoError] = useState('')
@@ -96,7 +98,7 @@ export default function CheckoutScreen() {
     const orderNum = `SPT-${Math.floor(1000 + Math.random() * 9000)}`
 
     try {
-      await chargeOrder(orderNum, finalTotal, apiMethod, apiMethod === 'ecocash' ? (currentUser as any).phone : undefined)
+      await chargeOrder(orderNum, finalTotal, apiMethod, apiMethod === 'ecocash' ? (user?.phone ?? '') : undefined)
     } catch (err: any) {
       Alert.alert('Payment failed', err.message ?? 'Could not process payment. Please try again.')
       setCharging(false)
@@ -143,7 +145,7 @@ export default function CheckoutScreen() {
         eventName: ticketItems[0]?.from ?? 'Event',
         tierName: ticketItems[0]?.eventMeta?.tierName,
         quantity: itemCount,
-        holder: currentUser.name,
+        holder: user?.name ?? 'Guest',
         status: 'valid',
         issuedAt: Date.now(),
       })
@@ -170,8 +172,8 @@ export default function CheckoutScreen() {
         ref: orderNum,
         merchantId: DEMO_MERCHANT_ID,
         merchantName: foodItems[0]?.from ?? DEMO_MERCHANT_NAME,
-        customerName: currentUser.name,
-        customerPhone: (currentUser as any).phone ?? '+263 77 000 0000',
+        customerName: user?.name ?? 'Guest',
+        customerPhone: user?.phone ?? '+263 77 000 0000',
         items: foodItems.map(i => ({ id: i.id, name: i.name, qty: i.qty, unitPrice: i.price })),
         subtotal,
         deliveryFee,

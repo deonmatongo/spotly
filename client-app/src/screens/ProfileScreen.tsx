@@ -7,8 +7,13 @@ import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { colors, spacing, radius, shadow, typography } from '../theme'
 import { useTheme, Palette } from '../context/ThemeContext'
-import { currentUser } from '../data/mock'
+import { useAuth } from '../context/AuthContext'
 import { RootStackParamList } from '../navigation'
+
+// Points/tier are not yet tracked server-side — use placeholder values.
+const MOCK_POINTS = 1240
+const MOCK_TIER = 'Gold'
+const MOCK_NEXT_TIER = 2000
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -37,9 +42,14 @@ export default function ProfileScreen() {
   const styles = makeStyles(colors)
   const insets = useSafeAreaInsets()
   const nav = useNavigation<Nav>()
+  const { user, logout } = useAuth()
   const [redeemModal, setRedeemModal] = useState<typeof REWARDS[0] | null>(null)
   const [redeemed, setRedeemed] = useState<number[]>([])
-  const progress = currentUser.points / currentUser.nextTierPoints
+
+  const displayName = user?.name ?? 'Guest'
+  const displayPhone = user?.phone ?? ''
+  const initial = displayName.charAt(0).toUpperCase()
+  const progress = MOCK_POINTS / MOCK_NEXT_TIER
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -48,11 +58,11 @@ export default function ProfileScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.avatarWrap}>
-            <Text style={styles.avatarInitial}>{currentUser.initial}</Text>
+            <Text style={styles.avatarInitial}>{initial}</Text>
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.name}>{currentUser.name}</Text>
-            <Text style={styles.email}>{currentUser.email}</Text>
+            <Text style={styles.name}>{displayName}</Text>
+            <Text style={styles.email}>{displayPhone}</Text>
           </View>
         </View>
 
@@ -61,7 +71,7 @@ export default function ProfileScreen() {
           <View style={styles.pointsTop}>
             <View>
               <Text style={styles.pointsLabel}>Spotly Points</Text>
-              <Text style={styles.pointsValue}>{currentUser.points.toLocaleString()}</Text>
+              <Text style={styles.pointsValue}>{MOCK_POINTS.toLocaleString()}</Text>
             </View>
             <View style={styles.sparkleIcon}>
               <Ionicons name="sparkles" size={24} color="rgba(255,255,255,0.9)" />
@@ -71,7 +81,7 @@ export default function ProfileScreen() {
             <View style={[styles.progressFill, { width: `${Math.min(progress * 100, 100)}%` as any }]} />
           </View>
           <Text style={styles.progressText}>
-            {(currentUser.nextTierPoints - currentUser.points).toLocaleString()} pts until your next reward tier
+            {(MOCK_NEXT_TIER - MOCK_POINTS).toLocaleString()} pts until your next reward tier
           </Text>
         </LinearGradient>
 
@@ -79,7 +89,7 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>Rewards</Text>
         <View style={styles.rewardsGrid}>
           {REWARDS.map(reward => {
-            const canRedeem = currentUser.points >= reward.points
+            const canRedeem = MOCK_POINTS >= reward.points
             const isRedeemed = redeemed.includes(reward.id)
             return (
               <View key={reward.id} style={styles.rewardCard}>
@@ -139,7 +149,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Sign out */}
-        <Pressable style={styles.signOutBtn}>
+        <Pressable style={styles.signOutBtn} onPress={logout}>
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
 
@@ -153,7 +163,7 @@ export default function ProfileScreen() {
           <Ionicons name="gift-outline" size={40} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 12 }} />
           <Text style={styles.sheetTitle}>{redeemModal?.name}</Text>
           <Text style={styles.sheetSub}>
-            This will use {redeemModal?.points} of your {currentUser.points.toLocaleString()} points
+            This will use {redeemModal?.points} of your {MOCK_POINTS.toLocaleString()} points
           </Text>
           <Pressable
             style={styles.sheetConfirm}

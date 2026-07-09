@@ -26,6 +26,12 @@ const DriverContext = createContext<DriverContextType | null>(null)
 
 export function DriverProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const driver = {
+    ...currentDriver,
+    name: user?.name ?? currentDriver.name,
+    phone: user?.phone ?? currentDriver.phone,
+    initial: (user?.name ?? currentDriver.name).charAt(0).toUpperCase(),
+  }
   const [isOnline, setOnline] = useState(false)
   const [pendingPayout, setPendingPayout] = useState(earningsSummary.pendingPayout)
   const [cashOutsToday, setCashOutsToday] = useState(0)
@@ -50,7 +56,7 @@ export function DriverProvider({ children }: { children: ReactNode }) {
 
   return (
     <DriverContext.Provider value={{
-      driver: currentDriver, isOnline, setOnline, toggleOnline,
+      driver, isOnline, setOnline, toggleOnline,
       pendingPayout, cashOutsToday, cashOut,
       destination, toggleDestination,
     }}>
