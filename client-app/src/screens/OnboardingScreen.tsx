@@ -175,10 +175,12 @@ export default function OnboardingScreen({ onLogin }: Props) {
                           style={[styles.textInput, { letterSpacing: 6 }]}
                         />
                       </View>
-                      {devOtp && (
+                      {__DEV__ && (
                         <View style={styles.devHint}>
                           <Ionicons name="code-slash-outline" size={12} color="rgba(255,255,255,0.35)" />
-                          <Text style={styles.devHintText}>Dev OTP: {devOtp}</Text>
+                          <Text style={styles.devHintText}>
+                            {devOtp ? `Dev OTP: ${devOtp}  ·  or use 000000` : 'Demo: use code 000000'}
+                          </Text>
                         </View>
                       )}
                     </Animated.View>

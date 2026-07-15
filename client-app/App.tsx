@@ -148,7 +148,7 @@ function AppGate() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     SpaceGrotesk_700Bold,
     SpaceGrotesk_600SemiBold,
     SpaceGrotesk_500Medium,
@@ -158,7 +158,16 @@ export default function App() {
     Manrope_700Bold,
   })
 
-  if (!fontsLoaded) return null
+  // Don't block the whole app on fonts forever: if loading errors or stalls,
+  // fall through after a short grace period and render with system fonts
+  // rather than showing an indefinite blank screen.
+  const [fontTimedOut, setFontTimedOut] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setFontTimedOut(true), 3000)
+    return () => clearTimeout(t)
+  }, [])
+
+  if (!fontsLoaded && !fontError && !fontTimedOut) return null
 
   return (
     <ErrorBoundary>

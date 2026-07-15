@@ -33,6 +33,9 @@ const ACCESS_TTL       = '15m'
 const REFRESH_TTL_MS   = 30 * 24 * 60 * 60 * 1000  // 30 days
 const OTP_TTL_MS       = 10 * 60 * 1000             // 10 minutes
 const IS_DEV           = process.env.NODE_ENV !== 'production'
+// Dev-only universal demo code: any phone + this code logs in without SMS.
+// Never accepted in production (guarded by IS_DEV at the verify step).
+const DEMO_OTP         = '000000'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -105,11 +108,14 @@ router.post('/otp/verify', (req, res) => {
   if (!raw || !code) return res.status(400).json({ error: 'phone and code required' })
 
   const now = Date.now()
-  const otp = getLatestOtp.get(raw)
-  if (!otp || otp.code !== String(code) || otp.expires_at < now) {
-    return res.status(401).json({ error: 'Invalid or expired code' })
+  const isDemo = IS_DEV && String(code) === DEMO_OTP
+  if (!isDemo) {
+    const otp = getLatestOtp.get(raw)
+    if (!otp || otp.code !== String(code) || otp.expires_at < now) {
+      return res.status(401).json({ error: 'Invalid or expired code' })
+    }
+    markOtpUsed.run(otp.id)
   }
-  markOtpUsed.run(otp.id)
 
   let user = getUserByPhone.get(raw)
   if (!user) {
